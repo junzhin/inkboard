@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Runtime files
+/tmp/inkboard.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+server/src/__tests__/__tmp_test__/
+
+# Package locks (keep npm)
+yarn.lock
+pnpm-lock.yaml

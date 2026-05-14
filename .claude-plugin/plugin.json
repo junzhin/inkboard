@@ -1,0 +1,11 @@
+{
+  "name": "inkboard",
+  "version": "0.1.0",
+  "description": "Canvas-based Markdown review, brainstorming interview, and per-hunk diff approval tool for Claude Code. Works standalone in terminal or with browser canvas UI.",
+  "author": {
+    "name": "InkBoard"
+  },
+  "license": "MIT",
+  "skills": ["./skills/"],
+  "commands": ["./commands/inkboard.md"]
+}

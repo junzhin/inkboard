@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$INKBOARD_HOOKS_DIR/question-hook.js\" 2>/dev/null || true",
+            "timeout": 55000
+          }
+        ],
+        "description": "Route AskUserQuestion to InkBoard canvas for rich input"
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$INKBOARD_HOOKS_DIR/diff-hook.js\" 2>/dev/null || true",
+            "timeout": 55000
+          }
+        ],
+        "description": "Route file edits to InkBoard for per-hunk review"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$INKBOARD_HOOKS_DIR/prompt-hook.js\" 2>/dev/null || true",
+            "timeout": 5000
+          }
+        ],
+        "description": "Notify InkBoard of user prompt for plan snapshot"
+      }
+    ]
+  }
+}
