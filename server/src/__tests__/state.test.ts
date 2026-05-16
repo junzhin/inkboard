@@ -53,60 +53,41 @@ describe("ServerState", () => {
     });
   });
 
-  describe("diff lifecycle", () => {
-    it("resolves when decision provided", async () => {
-      const id = state.nextId();
-      const hunks = [
-        {
-          index: 0,
-          oldStart: 1,
-          oldLines: ["old"],
-          newStart: 1,
-          newLines: ["new"],
-          raw: ["-old", "+new"],
-        },
-      ];
+});
 
-      const promise = state.addDiff(id, "test.txt", hunks, 5000);
-      const decision = { accepted: [0], rejected: [], annotations: [] };
-      const resolved = state.resolveDiff(id, decision);
-
-      expect(resolved).toBe(true);
-      const result = await promise;
-      expect(result.accepted).toEqual([0]);
-    });
-
-    it("rejects on timeout", async () => {
-      const id = state.nextId();
-
-      const promise = state.addDiff(id, "test.txt", [], 50);
-
-      await expect(promise).rejects.toThrow("timeout");
-    });
-
-    it("returns false when resolving unknown ID", () => {
-      const resolved = state.resolveDiff("nonexistent", {
-        accepted: [],
-        rejected: [],
-        annotations: [],
-      });
-      expect(resolved).toBe(false);
-    });
+describe("plan review lifecycle", () => {
+  it("resolves with approve decision", async () => {
+    const id = state.nextId();
+    const promise = state.addPlanReview({ id, content: "# plan", filePath: "/tmp/p.md", timeoutMs: 5000 });
+    const ok = state.resolvePlanReview(id, { approved: true, annotations: [] });
+    expect(ok).toBe(true);
+    await expect(promise).resolves.toEqual({ approved: true, annotations: [] });
   });
 
-  describe("plan state", () => {
-    it("stores and retrieves plan", () => {
-      state.setPlan("# Plan", "/path/to/plan.md");
-      expect(state.currentPlan).toEqual({
-        content: "# Plan",
-        filePath: "/path/to/plan.md",
-      });
-    });
+  it("resolves with deny + annotations", async () => {
+    const id = state.nextId();
+    const promise = state.addPlanReview({ id, content: "# plan", timeoutMs: 5000 });
+    const ann = [{ id: "a1", type: "comment" as const, selectedText: "x", comment: "fix", createdAt: 1 }];
+    state.resolvePlanReview(id, { approved: false, annotations: ann });
+    await expect(promise).resolves.toEqual({ approved: false, annotations: ann });
+  });
 
-    it("clears on reset", () => {
-      state.setPlan("# Plan", "/path/to/plan.md");
-      state.reset();
-      expect(state.currentPlan).toBeNull();
-    });
+  it("rejects on timeout", async () => {
+    const id = state.nextId();
+    const promise = state.addPlanReview({ id, content: "# plan", timeoutMs: 50 });
+    await expect(promise).rejects.toThrow("timeout");
+    expect(state.pendingPlanReviews.has(id)).toBe(false);
+  });
+
+  it("returns false for unknown id", () => {
+    expect(state.resolvePlanReview("missing", { approved: true, annotations: [] })).toBe(false);
+  });
+
+  it("reset clears pending plan reviews", () => {
+    const id = state.nextId();
+    state.addPlanReview({ id, content: "x", timeoutMs: 5000 }).catch(() => {});
+    expect(state.pendingPlanReviews.size).toBe(1);
+    state.reset();
+    expect(state.pendingPlanReviews.size).toBe(0);
   });
 });

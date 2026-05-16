@@ -33,28 +33,34 @@ class WebSocketClient {
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
+        console.log("[inkboard] recv:", msg.type, msg);
         for (const handler of this.handlers) {
           handler(msg);
         }
       } catch (err) {
-        console.error("[inkboard] invalid message:", err);
+        console.error("[inkboard] invalid message:", err, event.data);
       }
     };
 
-    this.ws.onclose = () => {
-      console.log("[inkboard] disconnected, reconnecting in 2s...");
+    this.ws.onclose = (ev) => {
+      console.warn("[inkboard] disconnected", ev.code, ev.reason, "reconnecting in 2s...");
       this.reconnectTimer = setTimeout(() => this.connect(), 2000);
     };
 
-    this.ws.onerror = () => {
+    this.ws.onerror = (ev) => {
+      console.error("[inkboard] ws error", ev);
       this.ws?.close();
     };
   }
 
-  send(msg: ClientMessage): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
-    }
+  send(msg: ClientMessage): boolean {
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
+    this.ws.send(JSON.stringify(msg));
+    return true;
+  }
+
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   onMessage(handler: MessageHandler): () => void {
@@ -71,4 +77,5 @@ class WebSocketClient {
 }
 
 const wsUrl = `ws://${window.location.host}`;
+console.log("[inkboard] WS URL:", wsUrl);
 export const wsClient = new WebSocketClient(wsUrl);

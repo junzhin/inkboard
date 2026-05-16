@@ -222,9 +222,6 @@ AskUserQuestion({
 
 ## InkBoard Canvas Integration
 
-When the InkBoard server is running (localhost:7777), this skill's AskUserQuestion calls are automatically routed to the browser canvas via HTTP hooks. The user gets:
-- Rich multi-select UI instead of terminal prompts
-- Visual progress bar showing current phase
-- Plan preview with inline annotation capability
+When the InkBoard server is running (port from `/tmp/inkboard.port`, default 7777-7787), this skill's `AskUserQuestion` calls are automatically routed to the browser canvas via the `PreToolUse:AskUserQuestion` hook. When the skill calls `ExitPlanMode` to present the final plan, the `PermissionRequest:ExitPlanMode` hook routes the plan to the canvas for annotated review. Multiple concurrent Claude windows show as tabs in the Review surface.
 
-No changes to the skill are needed -- the hooks handle the routing transparently.
+If the server is not running, all hooks fail open and the skill falls back to terminal `AskUserQuestion` and direct `ExitPlanMode` approval — no changes to the skill needed.

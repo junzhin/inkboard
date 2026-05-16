@@ -8,15 +8,16 @@ Start the InkBoard canvas server and begin a structured requirements interview.
 
 ## Steps
 
-1. Check if the InkBoard server is running by testing `http://localhost:7777/health`
-2. If not running, start it:
+1. Read `/tmp/inkboard.port` (created by the server). Probe `http://localhost:$PORT/health`.
+2. If unreachable, start the server:
    ```bash
    bash "$(dirname "$0")/../scripts/start.sh"
    ```
-3. Wait 2 seconds for the server to initialize
-4. Open the browser canvas (the start script handles this)
-5. Begin the interview by invoking the `inkboard-interview` skill
+3. Wait for `/tmp/inkboard.port` to appear, then open `http://localhost:$PORT`.
+4. Invoke the `inkboard-interview` skill.
+
+The server probes ports 7777-7787 in order; first free port wins.
 
 ## Fallback
 
-If the server fails to start (port conflict, Node not available), proceed with the interview skill in terminal-only mode. The skill works without the canvas.
+If the server fails to start, proceed with the `inkboard-interview` skill in terminal-only mode. The skill works without the canvas.

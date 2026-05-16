@@ -1,26 +1,37 @@
-import type { DiffDecision, Hunk } from "./types.js";
+import type { PlanReviewDecision } from "./types.js";
 
 interface PendingQuestion {
   resolve: (answers: Record<string, string>) => void;
   reject: (reason: string) => void;
   timeout: ReturnType<typeof setTimeout>;
   questions: unknown[];
-  createdAt: number;
+  deadline: number;
 }
 
-interface PendingDiff {
-  resolve: (decision: DiffDecision) => void;
+interface PendingPlanReview {
+  resolve: (decision: PlanReviewDecision) => void;
   reject: (reason: string) => void;
   timeout: ReturnType<typeof setTimeout>;
-  hunks: Hunk[];
-  filePath: string;
-  createdAt: number;
+  content: string;
+  filePath?: string;
+  sessionId?: string;
+  sessionName?: string;
+  deadline: number;
+}
+
+export interface AddPlanReviewOptions {
+  id: string;
+  content: string;
+  filePath?: string;
+  timeoutMs: number;
+  sessionId?: string;
+  sessionName?: string;
 }
 
 class ServerState {
   pendingQuestions = new Map<string, PendingQuestion>();
-  pendingDiffs = new Map<string, PendingDiff>();
-  currentPlan: { content: string; filePath: string } | null = null;
+  pendingPlanReviews = new Map<string, PendingPlanReview>();
+  questionRoutingEnabled = false;
   private counter = 0;
 
   nextId(): string {
@@ -43,7 +54,7 @@ class ServerState {
         reject,
         timeout,
         questions,
-        createdAt: Date.now(),
+        deadline: Date.now() + timeoutMs,
       });
     });
   }
@@ -57,52 +68,54 @@ class ServerState {
     return true;
   }
 
-  addDiff(
-    id: string,
-    filePath: string,
-    hunks: Hunk[],
-    timeoutMs: number
-  ): Promise<DiffDecision> {
+  releaseQuestion(id: string): boolean {
+    const pending = this.pendingQuestions.get(id);
+    if (!pending) return false;
+    clearTimeout(pending.timeout);
+    this.pendingQuestions.delete(id);
+    pending.reject("released");
+    return true;
+  }
+
+  addPlanReview(opts: AddPlanReviewOptions): Promise<PlanReviewDecision> {
+    const { id, content, filePath, timeoutMs, sessionId, sessionName } = opts;
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.pendingDiffs.delete(id);
+        this.pendingPlanReviews.delete(id);
         reject(new Error("timeout"));
       }, timeoutMs);
 
-      this.pendingDiffs.set(id, {
+      this.pendingPlanReviews.set(id, {
         resolve,
         reject,
         timeout,
-        hunks,
+        content,
         filePath,
-        createdAt: Date.now(),
+        sessionId,
+        sessionName,
+        deadline: Date.now() + timeoutMs,
       });
     });
   }
 
-  resolveDiff(id: string, decision: DiffDecision): boolean {
-    const pending = this.pendingDiffs.get(id);
+  resolvePlanReview(id: string, decision: PlanReviewDecision): boolean {
+    const pending = this.pendingPlanReviews.get(id);
     if (!pending) return false;
     clearTimeout(pending.timeout);
-    this.pendingDiffs.delete(id);
+    this.pendingPlanReviews.delete(id);
     pending.resolve(decision);
     return true;
-  }
-
-  setPlan(content: string, filePath: string): void {
-    this.currentPlan = { content, filePath };
   }
 
   reset(): void {
     for (const [, pending] of this.pendingQuestions) {
       clearTimeout(pending.timeout);
     }
-    for (const [, pending] of this.pendingDiffs) {
+    for (const [, pending] of this.pendingPlanReviews) {
       clearTimeout(pending.timeout);
     }
     this.pendingQuestions.clear();
-    this.pendingDiffs.clear();
-    this.currentPlan = null;
+    this.pendingPlanReviews.clear();
     this.counter = 0;
   }
 }

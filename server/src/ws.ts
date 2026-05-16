@@ -24,8 +24,15 @@ export function setupWebSocket(server: Server): WebSocketServer {
       clients.delete(ws);
     });
 
+    ws.on("error", () => {
+      clients.delete(ws);
+    });
+
     const status: ServerMessage = { type: "server-status", status: "ready" };
     ws.send(JSON.stringify(status));
+
+    const settings: ServerMessage = { type: "settings-sync", questionRoutingEnabled: state.questionRoutingEnabled };
+    ws.send(JSON.stringify(settings));
 
     replayPendingItems(ws);
   });
@@ -34,9 +41,10 @@ export function setupWebSocket(server: Server): WebSocketServer {
 }
 
 function replayPendingItems(ws: WebSocket): void {
+  const now = Date.now();
+
   for (const [id, pending] of state.pendingQuestions) {
-    const elapsed = Date.now() - (pending as { createdAt?: number }).createdAt!;
-    const remainingMs = Math.max(0, 54_000 - elapsed);
+    const remainingMs = pending.deadline - now;
     if (remainingMs <= 0) continue;
 
     const msg: ServerMessage = {
@@ -48,26 +56,18 @@ function replayPendingItems(ws: WebSocket): void {
     ws.send(JSON.stringify(msg));
   }
 
-  for (const [id, pending] of state.pendingDiffs) {
-    const elapsed = Date.now() - (pending as { createdAt?: number }).createdAt!;
-    const remainingMs = Math.max(0, 54_000 - elapsed);
+  for (const [id, pending] of state.pendingPlanReviews) {
+    const remainingMs = pending.deadline - now;
     if (remainingMs <= 0) continue;
 
     const msg: ServerMessage = {
-      type: "diff",
+      type: "plan-review",
       id,
+      content: pending.content,
       filePath: pending.filePath,
-      hunks: pending.hunks,
       timeoutMs: remainingMs,
-    };
-    ws.send(JSON.stringify(msg));
-  }
-
-  if (state.currentPlan) {
-    const msg: ServerMessage = {
-      type: "plan-snapshot",
-      content: state.currentPlan.content,
-      filePath: state.currentPlan.filePath,
+      sessionId: pending.sessionId,
+      sessionName: pending.sessionName,
     };
     ws.send(JSON.stringify(msg));
   }
@@ -78,10 +78,15 @@ function handleClientMessage(msg: ClientMessage): void {
     case "answer":
       state.resolveQuestion(msg.id, msg.answers);
       break;
-    case "diff-decision":
-      state.resolveDiff(msg.id, msg.decision);
+    case "question-release":
+      state.releaseQuestion(msg.id);
       break;
-    case "annotation":
+    case "plan-review-decision":
+      state.resolvePlanReview(msg.id, msg.decision);
+      break;
+    case "toggle-question-routing":
+      state.questionRoutingEnabled = msg.enabled;
+      broadcast({ type: "settings-sync", questionRoutingEnabled: msg.enabled });
       break;
   }
 }
@@ -96,5 +101,8 @@ export function broadcast(msg: ServerMessage): void {
 }
 
 export function hasClients(): boolean {
-  return clients.size > 0;
+  for (const ws of clients) {
+    if (ws.readyState === WebSocket.OPEN) return true;
+  }
+  return false;
 }

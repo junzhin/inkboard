@@ -15,3 +15,8 @@ server/src/__tests__/__tmp_test__/
 # Package locks (keep npm)
 yarn.lock
 pnpm-lock.yaml
+
+# Session debris
+2026-*.txt
+快照_*.md
+*.log
