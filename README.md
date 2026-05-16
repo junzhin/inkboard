@@ -1,13 +1,46 @@
-# InkBoard
+<p align="center">
+  <img src="assets/logo.svg" alt="InkBoard" width="80" height="80" />
+</p>
 
-A browser canvas for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that surfaces interactive flows in a real UI:
+<h1 align="center">InkBoard</h1>
+
+<p align="center">
+  <strong>See what Claude thinks. Before it ships.</strong>
+</p>
+
+<p align="center">
+  A browser canvas that gives you eyes on Claude Code's plans — review, annotate, and approve in a real UI instead of a terminal wall of text.
+</p>
+
+<p align="center">
+  <a href="#installation">Install</a> &nbsp;·&nbsp;
+  <a href="#features">Features</a> &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
+  <a href="docs/architecture.md">Architecture</a>
+</p>
+
+---
 
 | Flow | Hook | Surface |
 |------|------|---------|
 | **Plan Review** | `PermissionRequest:ExitPlanMode` | Markdown viewer + inline annotations + multi-session tabs |
 | **Structured Questions** | `PreToolUse:AskUserQuestion` | Multi-question form with options, custom input, auto-release |
 
-When the server isn't running, all hooks fail silently — Claude Code falls back to its terminal defaults. Zero-friction install, zero breakage.
+Zero-friction install. Zero breakage. When the server isn't running, all hooks fail silently — Claude Code falls back to its terminal defaults.
+
+---
+
+## Why InkBoard?
+
+Claude Code writes plans in markdown. You read them in a terminal. That's fine for small changes — but for a 200-line refactoring plan, you want:
+
+- **Visual context** — syntax-highlighted markdown, not raw text
+- **Inline annotations** — select text, comment, request changes
+- **Multi-session** — review plans from multiple Claude windows in one place
+- **Structured answers** — answer Claude's questions with radio buttons, not freeform text
+- **No lock-in** — toggle off anytime, everything falls back to terminal
+
+InkBoard is the missing UI layer between Claude's thinking and your approval.
 
 ---
 
@@ -19,7 +52,7 @@ When the server isn't running, all hooks fail silently — Claude Code falls bac
 claude plugin install github:junzhin/inkboard
 ```
 
-This clones the repo, builds server + web, and registers hooks automatically. The server auto-starts on first use.
+That's it. The server **auto-starts** the first time Claude triggers a hook — no background process to manage.
 
 ### Manual
 
