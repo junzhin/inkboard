@@ -104,6 +104,14 @@ async function isPortFree(port: number): Promise<boolean> {
 }
 
 async function findPort(): Promise<number> {
+  const envPort = parseInt(process.env.INKBOARD_PORT ?? "", 10);
+  if (envPort && await isPortFree(envPort)) {
+    await new Promise<void>((resolve) => {
+      server.listen(envPort, resolve);
+    });
+    return envPort;
+  }
+
   for (let port = PORT_START; port <= PORT_END; port++) {
     if (await isPortFree(port)) {
       await new Promise<void>((resolve) => {

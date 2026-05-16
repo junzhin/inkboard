@@ -1,11 +1,9 @@
 {
   "name": "inkboard",
-  "version": "0.1.0",
-  "description": "Canvas-based Markdown review, brainstorming interview, and per-hunk diff approval tool for Claude Code. Works standalone in terminal or with browser canvas UI.",
-  "author": {
-    "name": "InkBoard"
-  },
+  "version": "0.2.0",
+  "description": "Browser canvas for Claude Code — visual plan review, structured questions, inline annotations",
+  "author": { "name": "junzhin", "url": "https://github.com/junzhin" },
   "license": "MIT",
-  "skills": ["./skills/"],
+  "skills": ["./skills/inkboard-interview/SKILL.md"],
   "commands": ["./commands/inkboard.md"]
 }

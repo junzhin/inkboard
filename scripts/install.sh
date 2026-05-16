@@ -9,7 +9,8 @@ HOOKS_DIR="$SERVER_DIR/dist/hooks"
 CLAUDE_SETTINGS_DIR="$PROJECT_DIR/.claude"
 CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_DIR/settings.local.json"
 
-echo "[inkboard] Installing InkBoard..."
+echo "[inkboard] Installing InkBoard (standalone / local dev)..."
+echo "[inkboard] For plugin install, use: claude plugin install github:junzhin/inkboard"
 echo ""
 
 # 1. Install dependencies

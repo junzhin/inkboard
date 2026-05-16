@@ -1,60 +1,142 @@
 # InkBoard
 
-Browser canvas for Claude Code that surfaces two interactive flows in a real UI:
+A browser canvas for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that surfaces interactive flows in a real UI:
 
-| Flow                         | Trigger                                  | Browser surface                                    |
-| ---------------------------- | ---------------------------------------- | -------------------------------------------------- |
-| **Question (AskUserQuestion)** | `PreToolUse:AskUserQuestion` hook        | Multi-question form, returns answers via WebSocket |
-| **Plan review (ExitPlanMode)** | `PermissionRequest:ExitPlanMode` hook    | Markdown render + text-selection annotations + multi-session tabs |
+| Flow | Hook | Surface |
+|------|------|---------|
+| **Plan Review** | `PermissionRequest:ExitPlanMode` | Markdown viewer + inline annotations + multi-session tabs |
+| **Structured Questions** | `PreToolUse:AskUserQuestion` | Multi-question form with options, custom input, auto-release |
 
-The **Home** surface shows server status, pending counts, active reviews, and a session activity timeline.
+When the server isn't running, all hooks fail silently — Claude Code falls back to its terminal defaults. Zero-friction install, zero breakage.
+
+---
+
+## Installation
+
+### One-click (Claude Code plugin)
+
+```bash
+claude plugin install github:junzhin/inkboard
+```
+
+This clones the repo, builds server + web, and registers hooks automatically. The server auto-starts on first use.
+
+### Manual
+
+```bash
+git clone https://github.com/junzhin/inkboard.git
+cd inkboard
+bash scripts/install.sh
+bash scripts/start.sh
+```
+
+---
+
+## How it works
+
+```
+Claude Code hook ──POST──▶ InkBoard server ──WS──▶ Browser canvas
+                                 ▲                         │
+                                 └────── WS answer ────────┘
+```
+
+1. Claude Code triggers a hook (e.g., `ExitPlanMode`).
+2. Hook script POSTs to the local InkBoard server.
+3. Server broadcasts to the browser canvas via WebSocket.
+4. You review/annotate/answer in the browser.
+5. Response flows back → hook returns result → Claude Code continues.
+
+---
+
+## Configuration
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INKBOARD_PORT` | Auto (7777-7787) | Fixed port for the server |
+
+### Settings (`hooks/hooks.json`)
+
+```json
+{
+  "settings": {
+    "questionRoutingEnabled": false
+  }
+}
+```
+
+- `questionRoutingEnabled: false` — questions stay in terminal (default)
+- `questionRoutingEnabled: true` — questions route to canvas with 60s auto-release
+
+You can also toggle this at runtime from the Home dashboard in the browser.
+
+---
+
+## Features
+
+### Plan Review
+- Markdown rendering with syntax highlighting
+- Select text → Comment / Highlight / Delete
+- Multi-session tabs (one per Claude Code window)
+- Approve / Approve (auto-edit) / Request Changes
+- Annotations sent back as structured feedback
+
+### Structured Questions
+- Radio options + custom text input
+- 60-second canvas timeout → auto-releases to terminal
+- "Answer in terminal" button for explicit fallback
+
+### Home Dashboard
+- Server connection status
+- Pending reviews & questions count
+- Question routing toggle
+- Recent activity timeline
+
+---
+
+## Scripts
+
+```bash
+bash scripts/install.sh      # Install deps + build + configure hooks
+bash scripts/start.sh        # Start server (or use lazy auto-start)
+bash scripts/stop.sh         # Stop server
+```
+
+---
+
+## Development
+
+```bash
+cd server && npm install && npm run build    # TypeScript → dist/
+cd web && npm install && npm run dev          # Vite dev server (HMR)
+cd server && npm test                        # Vitest
+```
+
+---
+
+## Architecture
 
 Two layers, decoupled:
 
-- **Server** — Express + WebSocket on `:7777-:7787` (first free port wins)
-- **Web** — React + Vite SPA served from `web/dist`
+- **Server** — Express + WebSocket, serves the SPA from `web/dist`
+- **Web** — React + Zustand + Tailwind, connects via WebSocket
 
-If the server isn't running, all hooks fail silently and Claude Code falls back to its terminal default. No setup error.
+State is in-memory only. Server restart = lost pending interactions.
 
----
-
-## Quick start
-
-```bash
-bash scripts/install.sh        # install + build + auto-configure Claude Code hooks
-bash scripts/start.sh          # start server, open browser
-```
-
-The install script writes `.claude/settings.local.json` with the correct hook paths. No manual configuration needed.
-
-The server writes its port to `/tmp/inkboard.port` and PID to `/tmp/inkboard.pid`.
-
-**Question routing** is OFF by default (questions stay in terminal). Toggle ON in the browser Home page to route `AskUserQuestion` to the canvas. When enabled, a 60-second auto-release timer falls back to terminal if unanswered.
-
-For manual hook setup, see [docs/hooks-setup.md](docs/hooks-setup.md).
-
----
-
-## Repo layout
-
-```
-.
-├── server/        # Express + WS + hook entrypoints (TypeScript)
-├── web/           # React + Vite browser canvas
-├── skills/        # inkboard-interview SKILL.md (5-phase requirements interview)
-├── commands/      # /inkboard slash command
-├── hooks/         # hooks.json template for Claude Code
-├── scripts/       # install / start / stop bash helpers
-└── docs/          # architecture, hooks setup, API reference
-```
+See [docs/architecture.md](docs/architecture.md) for component diagram and data flow.
 
 ---
 
 ## Docs
 
-- [docs/architecture.md](docs/architecture.md) — component diagram, data flow, state lifecycle
-- [docs/hooks-setup.md](docs/hooks-setup.md) — wiring `~/.claude/settings.json`
+- [docs/architecture.md](docs/architecture.md) — Component diagram, data flow, state lifecycle
+- [docs/hooks-setup.md](docs/hooks-setup.md) — Manual hook configuration
 - [docs/api.md](docs/api.md) — HTTP endpoints + WebSocket message schema
-- [docs/CHANGELOG.md](docs/CHANGELOG.md) — release history
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — Release history
 
-For Claude Code itself, see [CLAUDE.md](CLAUDE.md).
+---
+
+## License
+
+[MIT](LICENSE)

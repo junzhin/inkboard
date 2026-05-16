@@ -1,4 +1,7 @@
 import { readFileSync, existsSync, appendFileSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PID_FILE = "/tmp/inkboard.pid";
 const PORT_FILE = "/tmp/inkboard.port";
@@ -32,6 +35,47 @@ function readStdin(): Promise<string> {
   });
 }
 
+function isProcessAlive(pidFile: string): boolean {
+  try {
+    const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function lazyStart(debug: (msg: string) => void): boolean {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const indexJs = join(__dirname, "..", "index.js");
+
+  if (!existsSync(indexJs)) {
+    debug(`index.js not found at ${indexJs}`);
+    return false;
+  }
+
+  try {
+    execSync(`node "${indexJs}" &`, {
+      stdio: "ignore",
+      timeout: 1000,
+      shell: "/bin/bash",
+    });
+  } catch {
+    // execSync throws on background process — expected
+  }
+
+  for (let i = 0; i < 6; i++) {
+    execSync("sleep 0.5");
+    if (existsSync(PORT_FILE) && isProcessAlive(PID_FILE)) {
+      debug("lazy start succeeded");
+      return true;
+    }
+  }
+  debug("lazy start timed out");
+  return false;
+}
+
 export async function bridgeHook(
   endpoint: string,
   opts: BridgeOptions = {}
@@ -42,18 +86,25 @@ export async function bridgeHook(
 
   debug(`bridgeHook called: ${endpoint}`);
 
-  if (!existsSync(PID_FILE)) {
-    debug("no PID file, fallback");
-    await new Promise<void>((resolve) =>
-      process.stdout.write(fallback, () => resolve())
-    );
-    process.exit(0);
+  const alive = existsSync(PID_FILE) && isProcessAlive(PID_FILE);
+
+  if (!alive) {
+    debug("server not running, attempting lazy start");
+    const started = lazyStart(debug);
+    if (!started) {
+      debug("lazy start failed, fallback");
+      await new Promise<void>((resolve) =>
+        process.stdout.write(fallback, () => resolve())
+      );
+      process.exit(0);
+    }
   }
 
-  let port = 7777;
-  if (existsSync(PORT_FILE)) {
+  let port = parseInt(process.env.INKBOARD_PORT ?? "", 10);
+  if (!port && existsSync(PORT_FILE)) {
     port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
   }
+  if (!port) port = 7777;
   debug(`port=${port}`);
 
   const stdin = await readStdin();

@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$INKBOARD_HOOKS_DIR/question-hook.js\" 2>/dev/null || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/question-hook.js\" 2>/dev/null || true",
             "timeout": 120000
           }
         ],
@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$INKBOARD_HOOKS_DIR/plan-review-hook.js\" 2>/dev/null || true",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/plan-review-hook.js\" 2>/dev/null || true",
             "timeout": 345600000
           }
         ],
