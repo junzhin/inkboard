@@ -15,7 +15,7 @@ const PORT_FILE = "/tmp/inkboard.port";
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 app.get("/health", (_req, res) => {
-    res.json({ status: "ok", version: "0.2.0" });
+    res.json({ status: "ok", version: "0.2.1" });
 });
 app.use("/hooks/question", questionRouter);
 app.use("/hooks/plan-review", planReviewRouter);

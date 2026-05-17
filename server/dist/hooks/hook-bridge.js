@@ -1,5 +1,5 @@
-import { readFileSync, existsSync, appendFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { readFileSync, existsSync, appendFileSync, openSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const PID_FILE = "/tmp/inkboard.pid";
@@ -33,7 +33,10 @@ function isProcessAlive(pidFile) {
         return false;
     }
 }
-function lazyStart(debug) {
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+async function lazyStart(debug) {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
     const indexJs = join(__dirname, "..", "index.js");
@@ -42,19 +45,24 @@ function lazyStart(debug) {
         return false;
     }
     try {
-        execSync(`node "${indexJs}" &`, {
-            stdio: "ignore",
-            timeout: 1000,
-            shell: "/bin/bash",
+        const logFd = openSync("/tmp/inkboard-server.log", "a");
+        const child = spawn(process.execPath, [indexJs], {
+            detached: true,
+            stdio: ["ignore", logFd, logFd],
+            env: process.env,
         });
+        child.unref();
+        debug(`spawned server pid=${child.pid}`);
     }
-    catch {
-        // execSync throws on background process — expected
+    catch (err) {
+        debug(`spawn failed: ${err}`);
+        return false;
     }
-    for (let i = 0; i < 6; i++) {
-        execSync("sleep 0.5");
+    // 60 × 250ms = 15s total — first-time port probing can take a few seconds
+    for (let i = 0; i < 60; i++) {
+        await sleep(250);
         if (existsSync(PORT_FILE) && isProcessAlive(PID_FILE)) {
-            debug("lazy start succeeded");
+            debug(`lazy start succeeded after ${(i + 1) * 250}ms`);
             return true;
         }
     }
@@ -69,7 +77,7 @@ export async function bridgeHook(endpoint, opts = {}) {
     const alive = existsSync(PID_FILE) && isProcessAlive(PID_FILE);
     if (!alive) {
         debug("server not running, attempting lazy start");
-        const started = lazyStart(debug);
+        const started = await lazyStart(debug);
         if (!started) {
             debug("lazy start failed, fallback");
             await new Promise((resolve) => process.stdout.write(fallback, () => resolve()));

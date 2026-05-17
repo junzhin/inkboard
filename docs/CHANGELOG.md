@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-05-17 (v0.2.1)
+
+### Changed
+
+- **`hook-bridge.ts` lazy start**: rewrote from `execSync("node ... &")` to `child_process.spawn(..., {detached: true, stdio: ["ignore", logFd, logFd]}).unref()`. Cleaner detach, server stdout/stderr captured to `/tmp/inkboard-server.log`, no bash dependency. Polling loop extended to 15s (was 3s) and changed from busy-wait `while (Date.now() < end)` to async `await sleep(250)` to avoid CPU spin during first-time startup port probing.
+- **`ws-client.ts` logging**: gated verbose `console.log` / `console.warn` behind `?debug` query string. By default only errors surface to the browser console; pass `http://localhost:7778/?debug` during development to see the connection / message stream.
+
 ## 2026-05-17 (v0.2.0 — release)
 
 ### Fixed (release blockers)

@@ -2,6 +2,22 @@ import type { ClientMessage, ServerMessage } from "./types";
 
 type MessageHandler = (msg: ServerMessage) => void;
 
+const DEBUG =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("debug");
+
+function logDebug(...args: unknown[]): void {
+  if (DEBUG) console.log("[inkboard]", ...args);
+}
+
+function logWarn(...args: unknown[]): void {
+  if (DEBUG) console.warn("[inkboard]", ...args);
+}
+
+function logError(...args: unknown[]): void {
+  console.error("[inkboard]", ...args);
+}
+
 class WebSocketClient {
   private ws: WebSocket | null = null;
   private handlers = new Set<MessageHandler>();
@@ -23,7 +39,7 @@ class WebSocketClient {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      console.log("[inkboard] connected to server");
+      logDebug("connected to server");
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
@@ -33,22 +49,22 @@ class WebSocketClient {
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
-        console.log("[inkboard] recv:", msg.type, msg);
+        logDebug("recv:", msg.type, msg);
         for (const handler of this.handlers) {
           handler(msg);
         }
       } catch (err) {
-        console.error("[inkboard] invalid message:", err, event.data);
+        logError("invalid message:", err, event.data);
       }
     };
 
     this.ws.onclose = (ev) => {
-      console.warn("[inkboard] disconnected", ev.code, ev.reason, "reconnecting in 2s...");
+      logWarn("disconnected", ev.code, ev.reason, "reconnecting in 2s...");
       this.reconnectTimer = setTimeout(() => this.connect(), 2000);
     };
 
     this.ws.onerror = (ev) => {
-      console.error("[inkboard] ws error", ev);
+      logError("ws error", ev);
       this.ws?.close();
     };
   }
@@ -77,5 +93,5 @@ class WebSocketClient {
 }
 
 const wsUrl = `ws://${window.location.host}`;
-console.log("[inkboard] WS URL:", wsUrl);
+logDebug("WS URL:", wsUrl);
 export const wsClient = new WebSocketClient(wsUrl);
