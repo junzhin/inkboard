@@ -1,6 +1,8 @@
 node_modules/
-dist/
 *.tsbuildinfo
+
+# Build artifacts that we DO ship in the plugin distribution
+# (server/dist and web/dist are committed — do not add `dist/` here)
 
 # Runtime files
 /tmp/inkboard.*
@@ -20,3 +22,8 @@ pnpm-lock.yaml
 2026-*.txt
 快照_*.md
 *.log
+
+# Local dev / editor / screenshots
+.vscode/
+_screenshots/
+portfolio/

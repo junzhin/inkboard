@@ -1,6 +1,6 @@
 {
   "name": "inkboard-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,6 @@
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "react": "^18.3.0",
-    "react-diff-viewer-continued": "^4.0.0",
     "react-dom": "^18.3.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",

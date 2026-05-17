@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-17 (v0.2.0 — release)
+
+### Fixed (release blockers)
+
+- **Plugin install path**: `server/dist/` and `web/dist/` are now committed to the repo. `claude /plugin install` clones the repo without running build steps, so shipping pre-built artifacts is required for hooks to resolve `${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/*.js`. Removed `dist/` from `.gitignore`.
+- **README install syntax**: replaced incorrect `claude plugin install github:...` CLI form with the actual `/plugin marketplace add` + `/plugin install` flow used inside a Claude Code session.
+- **Version drift**: bumped `server/package.json` and `web/package.json` from `0.1.0` → `0.2.0` to match `plugin.json` / `marketplace.json`. Fixed `/health` endpoint hardcoded version. Corrected CLAUDE.md test count (21 → 10, actual vitest run).
+
+### Removed
+
+- Dead dependencies from the dropped Diff flow: `diff`, `@types/diff` (server), `react-diff-viewer-continued` (web). Lockfiles regenerated.
+
+### Added
+
+- `.vscode/`, `_screenshots/`, `portfolio/` to `.gitignore` to keep local dev / screenshot debris out of the public repo.
+
 ## 2026-05-16 (v0.2.0)
 
 ### Added

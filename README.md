@@ -48,18 +48,21 @@ InkBoard is the missing UI layer between Claude's thinking and your approval.
 
 ### One-click (Claude Code plugin)
 
-```bash
-claude plugin install github:junzhin/inkboard
+Inside a Claude Code session:
+
+```
+/plugin marketplace add junzhin/inkboard
+/plugin install inkboard@inkboard
 ```
 
-That's it. The server **auto-starts** the first time Claude triggers a hook — no background process to manage.
+That's it. Pre-built artifacts ship in the repo, so no `npm install` / build step is required. The server **auto-starts** the first time Claude triggers a hook — no background process to manage.
 
-### Manual
+### Manual (development / from source)
 
 ```bash
 git clone https://github.com/junzhin/inkboard.git
 cd inkboard
-bash scripts/install.sh
+bash scripts/install.sh   # installs deps + builds server/dist + web/dist
 bash scripts/start.sh
 ```
 

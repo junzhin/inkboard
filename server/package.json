@@ -1,6 +1,6 @@
 {
   "name": "inkboard-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,12 +11,10 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "diff": "^7.0.0",
     "express": "^4.21.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/diff": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/node": "^20.0.0",
     "@types/ws": "^8.5.0",

@@ -25,7 +25,7 @@ bash scripts/start.sh              # writes /tmp/inkboard.{pid,port}
 bash scripts/stop.sh
 ```
 
-Tests: `cd server && npm test` (vitest, 21 tests).
+Tests: `cd server && npm test` (vitest, 10 tests).
 
 ## When you edit
 
