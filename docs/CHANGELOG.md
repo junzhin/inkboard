@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-18 (v0.2.4 — UX: auto-open browser + terminal hint)
+
+### Added
+
+- **Auto-open browser**: server now opens the canvas URL automatically on first start (`open` on macOS, `xdg-open` on Linux, `start` on Windows). No more manual URL-hunting after the first hook fires. Set `INKBOARD_NO_BROWSER=1` to disable (headless / remote use).
+- **Terminal hint on hook fire**: every time a hook routes to canvas, `hook-bridge` writes one line to stderr that Claude Code displays in the terminal:
+  ```
+  [inkboard] Plan review sent to canvas → http://localhost:7777
+  ```
+  Users now know where to look — and the URL is clickable in modern terminals.
+
+### Changed
+
+- README "How it works" section now includes a "First time you trigger a hook" subsection explaining the auto-open flow, the terminal hint, and the auto-allow-when-no-canvas safety behavior.
+- README env table documents `INKBOARD_NO_BROWSER`.
+
 ## 2026-05-18 (v0.2.3 — hooks registration fix)
 
 ### Fixed

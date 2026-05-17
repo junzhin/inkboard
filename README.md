@@ -82,6 +82,21 @@ Claude Code hook ──POST──▶ InkBoard server ──WS──▶ Browser c
 4. You review/annotate/answer in the browser.
 5. Response flows back → hook returns result → Claude Code continues.
 
+### First time you trigger a hook
+
+The first time Claude Code triggers an InkBoard hook in a session:
+
+1. The server **auto-starts** in the background (no `npm install` needed — dependencies are bundled).
+2. Your default browser **auto-opens** `http://localhost:<port>` to the InkBoard canvas.
+3. Claude Code shows a hint in the terminal:
+   ```
+   [inkboard] Plan review sent to canvas → http://localhost:7777
+   ```
+   If the browser didn't open automatically (headless / remote machine / `INKBOARD_NO_BROWSER=1`), click that URL or open it manually.
+4. Approve / annotate / deny in the browser. Claude Code continues with your decision.
+
+If the browser tab is **not open** when a hook fires, InkBoard auto-allows the action (so Claude is never blocked by an invisible UI). To enforce review-via-canvas, keep the tab open.
+
 ---
 
 ## Configuration
@@ -91,6 +106,7 @@ Claude Code hook ──POST──▶ InkBoard server ──WS──▶ Browser c
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `INKBOARD_PORT` | Auto (7777-7787) | Fixed port for the server |
+| `INKBOARD_NO_BROWSER` | unset | Set to `1` to disable auto-open browser on server start (useful for headless / remote setups) |
 
 ### Settings (`hooks/hooks.json`)
 

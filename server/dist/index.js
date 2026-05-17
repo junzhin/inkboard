@@ -26233,6 +26233,8 @@ var require_websocket_server = __commonJS({
 // src/index.ts
 var import_express3 = __toESM(require_express2(), 1);
 import { createServer } from "node:http";
+import { spawn } from "node:child_process";
+import { platform } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFileSync, existsSync, readFileSync } from "node:fs";
@@ -26593,7 +26595,7 @@ var PORT_FILE = "/tmp/inkboard.port";
 var app = (0, import_express3.default)();
 app.use(import_express3.default.json({ limit: "10mb" }));
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.3" });
+  res.json({ status: "ok", version: "0.2.4" });
 });
 app.use("/hooks/question", hook_question_default);
 app.use("/hooks/plan-review", hook_plan_review_default);
@@ -26697,11 +26699,35 @@ async function findPort() {
   }
   throw new Error(`No available port in ${PORT_START}-${PORT_END}`);
 }
+function openBrowser(url) {
+  if (process.env.INKBOARD_NO_BROWSER === "1") return;
+  const os = platform();
+  let cmd;
+  let args;
+  if (os === "darwin") {
+    cmd = "open";
+    args = [url];
+  } else if (os === "win32") {
+    cmd = "cmd";
+    args = ["/c", "start", "", url];
+  } else {
+    cmd = "xdg-open";
+    args = [url];
+  }
+  try {
+    const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+    child.unref();
+    child.on("error", () => {
+    });
+  } catch {
+  }
+}
 findPort().then((port) => {
   writeFileSync(PID_FILE, String(process.pid));
   writeFileSync(PORT_FILE, String(port));
   console.log(`[inkboard] server running on http://localhost:${port}`);
   console.log(`[inkboard] PID ${process.pid} written to ${PID_FILE}`);
+  openBrowser(`http://localhost:${port}`);
 });
 process.on("SIGINT", () => {
   console.log("\n[inkboard] shutting down...");

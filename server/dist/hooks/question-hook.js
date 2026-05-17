@@ -93,6 +93,14 @@ async function bridgeHook(endpoint, opts = {}) {
   debug(`port=${port}`);
   const stdin = await readStdin();
   debug(`stdin length=${stdin.length}`);
+  const flowLabel = endpoint.includes("plan-review") ? "Plan review" : "Question";
+  try {
+    process.stderr.write(
+      `[inkboard] ${flowLabel} sent to canvas \u2192 http://localhost:${port}
+`
+    );
+  } catch {
+  }
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

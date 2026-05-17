@@ -1,5 +1,7 @@
 import express from "express";
 import { createServer } from "node:http";
+import { spawn } from "node:child_process";
+import { platform } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFileSync, existsSync, readFileSync } from "node:fs";
@@ -18,7 +20,7 @@ const app = express();
 app.use(express.json({ limit: "10mb" }));
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.3" });
+  res.json({ status: "ok", version: "0.2.4" });
 });
 
 app.use("/hooks/question", questionRouter);
@@ -123,11 +125,38 @@ async function findPort(): Promise<number> {
   throw new Error(`No available port in ${PORT_START}-${PORT_END}`);
 }
 
+function openBrowser(url: string): void {
+  if (process.env.INKBOARD_NO_BROWSER === "1") return;
+  const os = platform();
+  let cmd: string;
+  let args: string[];
+  if (os === "darwin") {
+    cmd = "open";
+    args = [url];
+  } else if (os === "win32") {
+    cmd = "cmd";
+    args = ["/c", "start", "", url];
+  } else {
+    cmd = "xdg-open";
+    args = [url];
+  }
+  try {
+    const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+    child.unref();
+    child.on("error", () => {
+      // browser opener missing — silent; user can open manually
+    });
+  } catch {
+    // ignore
+  }
+}
+
 findPort().then((port) => {
   writeFileSync(PID_FILE, String(process.pid));
   writeFileSync(PORT_FILE, String(port));
   console.log(`[inkboard] server running on http://localhost:${port}`);
   console.log(`[inkboard] PID ${process.pid} written to ${PID_FILE}`);
+  openBrowser(`http://localhost:${port}`);
 });
 
 process.on("SIGINT", () => {

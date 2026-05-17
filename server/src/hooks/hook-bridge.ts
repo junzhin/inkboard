@@ -119,6 +119,17 @@ export async function bridgeHook(
   const stdin = await readStdin();
   debug(`stdin length=${stdin.length}`);
 
+  // User-visible hint: tell Claude Code user where to look. Goes to stderr
+  // (stdout is the hook's protocol channel — must stay strict JSON).
+  const flowLabel = endpoint.includes("plan-review") ? "Plan review" : "Question";
+  try {
+    process.stderr.write(
+      `[inkboard] ${flowLabel} sent to canvas → http://localhost:${port}\n`
+    );
+  } catch {
+    // ignore
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
