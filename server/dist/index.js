@@ -26593,7 +26593,7 @@ var PORT_FILE = "/tmp/inkboard.port";
 var app = (0, import_express3.default)();
 app.use(import_express3.default.json({ limit: "10mb" }));
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.2" });
+  res.json({ status: "ok", version: "0.2.3" });
 });
 app.use("/hooks/question", hook_question_default);
 app.use("/hooks/plan-review", hook_plan_review_default);

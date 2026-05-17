@@ -1,33 +1,5 @@
 {
   "settings": {
     "questionRoutingEnabled": false
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/question-hook.js\" 2>/dev/null || true",
-            "timeout": 120000
-          }
-        ],
-        "description": "Route AskUserQuestion to InkBoard canvas"
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "matcher": "ExitPlanMode",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/plan-review-hook.js\" 2>/dev/null || true",
-            "timeout": 345600000
-          }
-        ],
-        "description": "Route plan approval to InkBoard for annotated review"
-      }
-    ]
   }
 }

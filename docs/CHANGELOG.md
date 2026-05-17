@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-05-18 (v0.2.3 — hooks registration fix)
+
+### Fixed
+
+- **Hooks now actually register on plugin install**: `plugin.json` previously had no `hooks` field. Claude Code's plugin loader only registers hooks declared in `plugin.json` — the orphan `hooks/hooks.json` file in the repo was never read. Result: `PreToolUse:AskUserQuestion` and `PermissionRequest:ExitPlanMode` were never wired, hooks scripts never fired, canvas never opened. Detected by Mac install verification — `installed_plugins.json` showed no inkboard hooks registered after `/plugin install`.
+
+### Changed
+
+- Inlined the hook configuration into `plugin.json` under the `hooks` key (Claude Code plugin spec).
+- `hooks/hooks.json` now holds only the `settings` block (server-side config, e.g. `questionRoutingEnabled`). Server still reads it on boot.
+
 ## 2026-05-18 (v0.2.2 — critical install fix)
 
 ### Fixed
