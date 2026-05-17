@@ -8,6 +8,11 @@ import type { ServerMessage, PlanAnnotation } from "../types.js";
 const router = Router();
 // effectively no timeout — match the hook command's `timeout` setting (4 days)
 const TIMEOUT_MS = 345_600_000;
+// how long to wait for a canvas WebSocket client to connect before falling back
+// to auto-allow. Covers the cold-start gap: hook fires → server spawns → browser
+// auto-opens → page loads → WebSocket handshake completes. Browser cold start
+// on macOS can take 10–15s; 20s gives headroom without surprising the user.
+const CLIENT_GRACE_MS = 20_000;
 
 interface PermissionRequestInput {
   session_id?: string;
@@ -114,18 +119,33 @@ function formatFeedback(annotations: PlanAnnotation[]): string {
   return out.join("\n");
 }
 
+async function waitForClient(timeoutMs: number): Promise<boolean> {
+  const start = Date.now();
+  while (!hasClients() && Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return hasClients();
+}
+
 router.post("/", async (req, res) => {
   const input = req.body as PermissionRequestInput;
-
-  if (!hasClients()) {
-    res.json(permissionResponse("allow"));
-    return;
-  }
-
   const id = state.nextId();
   const { content, filePath } = await extractPlan(input);
   const sessionId = input.session_id ?? undefined;
   const sessionName = deriveSessionName(input);
+
+  // Register the pending review synchronously BEFORE waiting for a client.
+  // Promise executor runs synchronously, so state.pendingPlanReviews is populated
+  // immediately on this call — any client that connects during the grace period
+  // will pick this up via replayPendingItems().
+  const decisionPromise = state.addPlanReview({
+    id,
+    content,
+    filePath,
+    timeoutMs: TIMEOUT_MS,
+    sessionId,
+    sessionName,
+  });
 
   const msg: ServerMessage = {
     type: "plan-review",
@@ -138,15 +158,35 @@ router.post("/", async (req, res) => {
   };
   broadcast(msg);
 
+  if (!(await waitForClient(CLIENT_GRACE_MS))) {
+    // Browser never connected — fall back to allow so we don't block Claude for
+    // up to 4 days waiting on a canvas that's not coming. Tell the user where to
+    // look so they can fix their setup (browser opener missing, INKBOARD_NO_BROWSER
+    // set, headless env, etc.).
+    state.resolvePlanReview(id, { approved: true, annotations: [] });
+    try {
+      process.stderr.write(
+        "[inkboard] canvas never connected within 20s — auto-approving plan. " +
+          "Open http://localhost:" +
+          (process.env.INKBOARD_PORT ?? "7777-7787") +
+          " manually to use the canvas.\n"
+      );
+    } catch {
+      // ignore
+    }
+    res.json(permissionResponse("allow"));
+    return;
+  }
+
+  // Client connected during grace (or was already connected). Re-broadcast so
+  // late-arrivers that connected AFTER our initial broadcast still see it —
+  // replayPendingItems already handles them, but re-broadcasting is cheap and
+  // covers a tighter race where the client connects between broadcast and
+  // replay completion.
+  broadcast(msg);
+
   try {
-    const decision = await state.addPlanReview({
-      id,
-      content,
-      filePath,
-      timeoutMs: TIMEOUT_MS,
-      sessionId,
-      sessionName,
-    });
+    const decision = await decisionPromise;
 
     if (decision.approved) {
       const message = decision.autoEdit

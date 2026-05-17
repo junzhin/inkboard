@@ -95,7 +95,9 @@ The first time Claude Code triggers an InkBoard hook in a session:
    If the browser didn't open automatically (headless / remote machine / `INKBOARD_NO_BROWSER=1`), click that URL or open it manually.
 4. Approve / annotate / deny in the browser. Claude Code continues with your decision.
 
-If the browser tab is **not open** when a hook fires, InkBoard auto-allows the action (so Claude is never blocked by an invisible UI). To enforce review-via-canvas, keep the tab open.
+For **plan review** (`ExitPlanMode`), the server waits up to **20 seconds** for the browser to connect (covers cold-start across platforms) and the plan is registered up-front, so a freshly-opening canvas always picks it up via the replay-on-connect channel. If those 20 seconds elapse with no canvas client (e.g. browser opener failed, you're on a headless box), the hook auto-allows and prints a one-line hint pointing to the URL.
+
+For **questions** (`AskUserQuestion`), the canvas is opt-in via `questionRoutingEnabled`. When disabled or no canvas is connected, questions stay in the terminal picker.
 
 ---
 

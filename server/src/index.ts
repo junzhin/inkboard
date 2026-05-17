@@ -20,7 +20,7 @@ const app = express();
 app.use(express.json({ limit: "10mb" }));
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.4" });
+  res.json({ status: "ok", version: "0.2.5" });
 });
 
 app.use("/hooks/question", questionRouter);

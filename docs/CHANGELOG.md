@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-05-18 (v0.2.5 — plan review actually reaches the canvas)
+
+### Fixed
+
+- **Plan review now actually appears in the canvas (the v0.2.4 finish-line bug)**: on a fresh `/plugin install`, triggering ExitPlanMode showed the plan in the terminal and even auto-opened the browser, but the **Review** tab stayed empty. Root cause: `hook-plan-review.ts` short-circuited with `if (!hasClients()) res.json(allow)` *before* registering the pending review. Lazy-start spawns the server and opens the browser in the same instant, so when the hook POSTs `/hooks/plan-review` 50–500 ms later, the WebSocket handshake hasn't finished — `hasClients()` returns `false`, the hook auto-allows, the plan never enters `state.pendingPlanReviews`, and the canvas (once it finally connects) has nothing to replay.
+- **Replaced with a grace-period flow**: `addPlanReview` is called synchronously up-front so the pending entry is registered before any wait. Then we wait up to **20 seconds** for a WebSocket client to connect (covers macOS cold-start of Safari/Chrome, ~10–15 s in the worst case). If a client connects, `replayPendingItems()` ships the plan automatically. If 20 seconds elapse with no client, we resolve the pending review as allow (avoiding a 4-day block on a never-opening browser) and write a one-line stderr hint telling the user to open `http://localhost:<port>` manually.
+- **Race-condition regression guard**: added a vitest case (`addPlanReview registers pending entry synchronously`) that fails if anyone ever moves the pending-map write inside a `.then()` and silently re-introduces the same bug.
+
+### Removed (dead code / install drift)
+
+- `scripts/postinstall.sh`: never executed by `/plugin install` (Claude Code's plugin loader runs no scripts), and esbuild bundling makes the `npm install` it would have run unnecessary anyway. Removed to stop misleading anyone reading the repo.
+- `marketplace.json` `owner.email: ""`: empty string dropped — the field was either lying or harmless, both unnecessary.
+
+### Changed
+
+- `scripts/install.sh` (standalone local-dev installer, **not** plugin install):
+  - Fixed README hint inside the script — old text suggested `claude plugin install github:...` which is not a real command. Replaced with the actual `/plugin marketplace add` + `/plugin install` flow.
+  - Switched build step from `npx tsc` to `npm run build` (esbuild bundle) so the standalone install produces the same artifacts as the plugin path.
+  - Switched `npm install --production` to `npm install` — esbuild is a devDependency required for the build step.
+
 ## 2026-05-18 (v0.2.4 — UX: auto-open browser + terminal hint)
 
 ### Added

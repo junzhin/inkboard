@@ -90,4 +90,27 @@ describe("plan review lifecycle", () => {
     state.reset();
     expect(state.pendingPlanReviews.size).toBe(0);
   });
+
+  // Regression guard: hook-plan-review.ts relies on addPlanReview registering
+  // the pending entry synchronously so that a WebSocket client connecting
+  // during the grace period can pick it up via replayPendingItems(). If the
+  // registration ever becomes async (e.g. moved inside `.then`), the
+  // grace-period flow silently breaks and the canvas Review tab stays empty.
+  it("addPlanReview registers pending entry synchronously (replay race guard)", () => {
+    const id = state.nextId();
+    const p = state.addPlanReview({
+      id,
+      content: "# plan",
+      timeoutMs: 5000,
+      sessionId: "s1",
+      sessionName: "demo",
+    });
+    expect(state.pendingPlanReviews.has(id)).toBe(true);
+    const pending = state.pendingPlanReviews.get(id)!;
+    expect(pending.content).toBe("# plan");
+    expect(pending.sessionId).toBe("s1");
+    expect(pending.sessionName).toBe("demo");
+    state.resolvePlanReview(id, { approved: true, annotations: [] });
+    return p;
+  });
 });

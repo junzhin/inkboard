@@ -1,12 +1,12 @@
 {
   "name": "inkboard",
   "description": "Browser canvas for Claude Code plan review and structured questions",
-  "owner": { "name": "junzhin", "email": "" },
+  "owner": { "name": "junzhin" },
   "plugins": [
     {
       "name": "inkboard",
       "source": "./",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "category": "workflow",
       "tags": ["plan-review", "canvas", "hooks", "questions", "annotations"],
       "homepage": "https://github.com/junzhin/inkboard",

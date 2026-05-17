@@ -26475,6 +26475,7 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 var router2 = (0, import_express2.Router)();
 var TIMEOUT_MS2 = 3456e5;
+var CLIENT_GRACE_MS = 2e4;
 function deriveSessionName(input) {
   const sid = input.session_id;
   const shortId = sid ? sid.slice(-4) : void 0;
@@ -26545,16 +26546,27 @@ function formatFeedback(annotations) {
   out.push("Please incorporate these changes and re-present the plan.");
   return out.join("\n");
 }
+async function waitForClient(timeoutMs) {
+  const start = Date.now();
+  while (!hasClients() && Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return hasClients();
+}
 router2.post("/", async (req, res) => {
   const input = req.body;
-  if (!hasClients()) {
-    res.json(permissionResponse("allow"));
-    return;
-  }
   const id = state.nextId();
   const { content, filePath } = await extractPlan(input);
   const sessionId = input.session_id ?? void 0;
   const sessionName = deriveSessionName(input);
+  const decisionPromise = state.addPlanReview({
+    id,
+    content,
+    filePath,
+    timeoutMs: TIMEOUT_MS2,
+    sessionId,
+    sessionName
+  });
   const msg = {
     type: "plan-review",
     id,
@@ -26565,15 +26577,20 @@ router2.post("/", async (req, res) => {
     sessionName
   };
   broadcast(msg);
+  if (!await waitForClient(CLIENT_GRACE_MS)) {
+    state.resolvePlanReview(id, { approved: true, annotations: [] });
+    try {
+      process.stderr.write(
+        "[inkboard] canvas never connected within 20s \u2014 auto-approving plan. Open http://localhost:" + (process.env.INKBOARD_PORT ?? "7777-7787") + " manually to use the canvas.\n"
+      );
+    } catch {
+    }
+    res.json(permissionResponse("allow"));
+    return;
+  }
+  broadcast(msg);
   try {
-    const decision = await state.addPlanReview({
-      id,
-      content,
-      filePath,
-      timeoutMs: TIMEOUT_MS2,
-      sessionId,
-      sessionName
-    });
+    const decision = await decisionPromise;
     if (decision.approved) {
       const message = decision.autoEdit ? "User approved plan AND requested auto-edit mode: proceed without prompting for individual file edit confirmations." : void 0;
       res.json(permissionResponse("allow", message));
@@ -26595,7 +26612,7 @@ var PORT_FILE = "/tmp/inkboard.port";
 var app = (0, import_express3.default)();
 app.use(import_express3.default.json({ limit: "10mb" }));
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.4" });
+  res.json({ status: "ok", version: "0.2.5" });
 });
 app.use("/hooks/question", hook_question_default);
 app.use("/hooks/plan-review", hook_plan_review_default);

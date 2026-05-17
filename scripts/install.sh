@@ -10,12 +10,14 @@ CLAUDE_SETTINGS_DIR="$PROJECT_DIR/.claude"
 CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_DIR/settings.local.json"
 
 echo "[inkboard] Installing InkBoard (standalone / local dev)..."
-echo "[inkboard] For plugin install, use: claude plugin install github:junzhin/inkboard"
+echo "[inkboard] For plugin install inside Claude Code, use:"
+echo "[inkboard]   /plugin marketplace add junzhin/inkboard"
+echo "[inkboard]   /plugin install inkboard@inkboard"
 echo ""
 
-# 1. Install dependencies
+# 1. Install dependencies (full install — esbuild is a devDependency required for build)
 echo "[inkboard] Installing server dependencies..."
-(cd "$SERVER_DIR" && npm install --production)
+(cd "$SERVER_DIR" && npm install)
 
 if [ -f "$WEB_DIR/package.json" ]; then
   echo "[inkboard] Installing web dependencies..."
@@ -23,8 +25,8 @@ if [ -f "$WEB_DIR/package.json" ]; then
 fi
 
 # 2. Build
-echo "[inkboard] Building server..."
-(cd "$SERVER_DIR" && npx tsc)
+echo "[inkboard] Building server (esbuild bundle)..."
+(cd "$SERVER_DIR" && npm run build)
 
 if [ -f "$WEB_DIR/package.json" ]; then
   echo "[inkboard] Building web UI..."
