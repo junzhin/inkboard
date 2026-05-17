@@ -1,1 +1,0 @@
-{"version":3,"file":"hook-bridge.d.ts","sourceRoot":"","sources":["../../src/hooks/hook-bridge.ts"],"names":[],"mappings":"AAQA,UAAU,aAAa;IACrB,uFAAuF;IACvF,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,kEAAkE;IAClE,SAAS,CAAC,EAAE,MAAM,CAAC;IACnB,+DAA+D;IAC/D,OAAO,CAAC,EAAE,MAAM,CAAC;CAClB;AAwED,wBAAsB,UAAU,CAC9B,QAAQ,EAAE,MAAM,EAChB,IAAI,GAAE,aAAkB,GACvB,OAAO,CAAC,IAAI,CAAC,CA+Df"}

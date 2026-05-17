@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-18 (v0.2.2 — critical install fix)
+
+### Fixed
+
+- **Plugin install now actually works**: previous releases shipped `server/dist/` (compiled TS) but `server/node_modules/` was excluded by `.gitignore`. Claude Code's `/plugin install` clones the repo without running `npm install`, so the server crashed on every hook trigger with `ERR_MODULE_NOT_FOUND: Cannot find package 'express'`. Hooks then silently fell back via `2>/dev/null || true` and the canvas never opened.
+
+### Changed
+
+- **Build pipeline**: replaced `tsc` direct compilation with `esbuild` bundling. All three entry points (`server/dist/index.js`, `dist/hooks/question-hook.js`, `dist/hooks/plan-review-hook.js`) are now self-contained — express and ws are inlined. Zero runtime npm dependency.
+- `npm run build` now runs `node scripts/bundle.mjs` (esbuild). `npm run build:tsc` kept for type-checking.
+- Bundled artifact sizes: `index.js` 1.2 MB, hook scripts ~4 KB each. No `node_modules` required for plugin operation.
+
+### Verified
+
+- Removed `server/node_modules/`, ran hook script → server lazy-started in 500ms, `/health` returned 0.2.2, fallback chain not triggered.
+
 ## 2026-05-17 (v0.2.1)
 
 ### Changed
