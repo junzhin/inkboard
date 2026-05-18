@@ -4,13 +4,23 @@ import { broadcast, hasClients } from "../ws.js";
 import type { HookInput, ServerMessage } from "../types.js";
 
 const router = Router();
-const TIMEOUT_MS = 1_800_000;
+const TIMEOUT_MS = 5 * 60_000;
 const CANVAS_TIMEOUT_MS = 60_000;
 
 router.post("/", async (req, res) => {
   const input = req.body as HookInput;
 
-  if (!state.questionRoutingEnabled || !hasClients()) {
+  if (!state.questionRoutingEnabled) {
+    process.stderr.write(
+      "[inkboard] question NOT routed: routing disabled (toggle in canvas Home → 'Route questions to canvas').\n"
+    );
+    res.json({});
+    return;
+  }
+  if (!hasClients()) {
+    process.stderr.write(
+      "[inkboard] question NOT routed: no canvas client connected. Open the canvas tab and retry.\n"
+    );
     res.json({});
     return;
   }

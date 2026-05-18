@@ -1,5 +1,5 @@
 {
   "settings": {
-    "questionRoutingEnabled": false
+    "questionRoutingEnabled": true
   }
 }

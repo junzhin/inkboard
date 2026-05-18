@@ -168,7 +168,7 @@ router.post("/", async (req, res) => {
       process.stderr.write(
         "[inkboard] canvas never connected within 20s — auto-approving plan. " +
           "Open http://localhost:" +
-          (process.env.INKBOARD_PORT ?? "7777-7787") +
+          (process.env.INKBOARD_PORT ?? "16500-16519") +
           " manually to use the canvas.\n"
       );
     } catch {

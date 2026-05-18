@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
 import type { ClientMessage, ServerMessage } from "./types.js";
 import { state } from "./state.js";
+import { saveUserConfig } from "./config.js";
 
 const clients = new Set<WebSocket>();
 
@@ -86,6 +87,7 @@ function handleClientMessage(msg: ClientMessage): void {
       break;
     case "toggle-question-routing":
       state.questionRoutingEnabled = msg.enabled;
+      saveUserConfig({ questionRoutingEnabled: msg.enabled });
       broadcast({ type: "settings-sync", questionRoutingEnabled: msg.enabled });
       break;
   }

@@ -31,7 +31,8 @@ export interface AddPlanReviewOptions {
 class ServerState {
   pendingQuestions = new Map<string, PendingQuestion>();
   pendingPlanReviews = new Map<string, PendingPlanReview>();
-  questionRoutingEnabled = false;
+  questionRoutingEnabled = true;
+  boundPort: number | null = null;
   private counter = 0;
 
   nextId(): string {

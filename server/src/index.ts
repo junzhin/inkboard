@@ -4,15 +4,19 @@ import { spawn } from "node:child_process";
 import { platform } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
 import { setupWebSocket, broadcast, hasClients } from "./ws.js";
 import { state } from "./state.js";
+import { loadSettings } from "./config.js";
 import questionRouter from "./routes/hook-question.js";
 import planReviewRouter from "./routes/hook-plan-review.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT_START = 7777;
-const PORT_END = 7787;
+const VERSION = "0.2.6";
+const APP_TAG = "inkboard";
+const PORT_START = 16500;
+const PORT_END = 16519;
+const HOST = "127.0.0.1";
 const PID_FILE = "/tmp/inkboard.pid";
 const PORT_FILE = "/tmp/inkboard.port";
 
@@ -20,7 +24,13 @@ const app = express();
 app.use(express.json({ limit: "10mb" }));
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.5" });
+  res.json({
+    status: "ok",
+    app: APP_TAG,
+    version: VERSION,
+    pid: process.pid,
+    port: state.boundPort ?? null,
+  });
 });
 
 app.use("/hooks/question", questionRouter);
@@ -71,16 +81,9 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-const hooksConfigPath = join(__dirname, "..", "..", "hooks", "hooks.json");
-if (existsSync(hooksConfigPath)) {
-  try {
-    const cfg = JSON.parse(readFileSync(hooksConfigPath, "utf-8"));
-    if (cfg.settings?.questionRoutingEnabled != null) {
-      state.questionRoutingEnabled = Boolean(cfg.settings.questionRoutingEnabled);
-    }
-  } catch {
-    // invalid config — use defaults
-  }
+const settings = loadSettings();
+if (typeof settings.questionRoutingEnabled === "boolean") {
+  state.questionRoutingEnabled = settings.questionRoutingEnabled;
 }
 
 const webDist = join(__dirname, "..", "..", "web", "dist");
@@ -99,28 +102,57 @@ async function isPortFree(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const tester = createNetServer();
     tester.once("error", () => resolve(false));
-    tester.listen(port, () => {
+    tester.listen(port, HOST, () => {
       tester.close(() => resolve(true));
     });
   });
 }
 
+async function fingerprintMatches(port: number): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 800);
+    const res = await fetch(`http://${HOST}:${port}/health`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return false;
+    const body = (await res.json()) as { app?: string; pid?: number };
+    return body.app === APP_TAG && body.pid === process.pid;
+  } catch {
+    return false;
+  }
+}
+
+async function tryBind(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const onError = () => {
+      server.off("listening", onListening);
+      resolve(false);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      resolve(true);
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, HOST);
+  });
+}
+
 async function findPort(): Promise<number> {
   const envPort = parseInt(process.env.INKBOARD_PORT ?? "", 10);
-  if (envPort && await isPortFree(envPort)) {
-    await new Promise<void>((resolve) => {
-      server.listen(envPort, resolve);
-    });
-    return envPort;
-  }
+  const candidates: number[] = [];
+  if (envPort) candidates.push(envPort);
+  for (let p = PORT_START; p <= PORT_END; p++) candidates.push(p);
 
-  for (let port = PORT_START; port <= PORT_END; port++) {
-    if (await isPortFree(port)) {
-      await new Promise<void>((resolve) => {
-        server.listen(port, resolve);
-      });
+  for (const port of candidates) {
+    if (!(await isPortFree(port))) continue;
+    if (!(await tryBind(port))) continue;
+    // Self-fingerprint: confirm /health on this port responds as us.
+    if (await fingerprintMatches(port)) {
       return port;
     }
+    // Bound but fingerprint mismatch — another process answered first; close and retry.
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
   throw new Error(`No available port in ${PORT_START}-${PORT_END}`);
 }
@@ -152,11 +184,14 @@ function openBrowser(url: string): void {
 }
 
 findPort().then((port) => {
+  state.boundPort = port;
   writeFileSync(PID_FILE, String(process.pid));
   writeFileSync(PORT_FILE, String(port));
-  console.log(`[inkboard] server running on http://localhost:${port}`);
-  console.log(`[inkboard] PID ${process.pid} written to ${PID_FILE}`);
+  console.log(`[inkboard] server v${VERSION} running on http://${HOST}:${port} (pid ${process.pid})`);
   openBrowser(`http://localhost:${port}`);
+}).catch((err) => {
+  console.error(`[inkboard] failed to bind: ${err.message}`);
+  process.exit(1);
 });
 
 process.on("SIGINT", () => {

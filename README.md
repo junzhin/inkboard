@@ -66,6 +66,23 @@ bash scripts/install.sh   # installs deps + builds server/dist + web/dist
 bash scripts/start.sh
 ```
 
+### Re-install / upgrade
+
+Claude Code caches the marketplace clone separately from the install cache, so a stale version can stick around even after `/plugin uninstall`. The one-shot cleanup:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/junzhin/inkboard/main/scripts/uninstall.sh)
+```
+
+Then in Claude Code:
+
+```
+/plugin marketplace add junzhin/inkboard
+/plugin install inkboard@inkboard
+```
+
+Pass `--purge` to also wipe `~/.config/inkboard/` (your saved settings).
+
 ---
 
 ## How it works
@@ -107,23 +124,28 @@ For **questions** (`AskUserQuestion`), the canvas is opt-in via `questionRouting
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `INKBOARD_PORT` | Auto (7777-7787) | Fixed port for the server |
+| `INKBOARD_PORT` | Auto (16500-16519) | Fixed port for the server. The default range avoids known squatters on macOS (Code Helper, Edge DevTools) and binds IPv4 only so `localhost` lookup is unambiguous. |
 | `INKBOARD_NO_BROWSER` | unset | Set to `1` to disable auto-open browser on server start (useful for headless / remote setups) |
 
-### Settings (`hooks/hooks.json`)
+### Settings
+
+Two files participate; user-level wins:
+
+1. `hooks/hooks.json` (bundled with the plugin — treat as factory defaults; gets overwritten on every plugin update)
+2. `~/.config/inkboard/config.json` (your overrides — survives plugin updates)
 
 ```json
 {
   "settings": {
-    "questionRoutingEnabled": false
+    "questionRoutingEnabled": true
   }
 }
 ```
 
-- `questionRoutingEnabled: false` — questions stay in terminal (default)
-- `questionRoutingEnabled: true` — questions route to canvas with 60s auto-release
+- `questionRoutingEnabled: true` — questions route to canvas with 60s auto-release (default)
+- `questionRoutingEnabled: false` — questions stay in terminal
 
-You can also toggle this at runtime from the Home dashboard in the browser.
+Toggling from the Home dashboard writes to (2). The plugin update path never touches (2).
 
 ---
 

@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-05-18 (v0.2.6 — port collision + stale cache hygiene)
+
+### Fixed (the "canvas opens but review section is empty" bug — round two)
+
+- **Port range moved to 16500–16519** (was 7777–7787). The 777x band was being squatted on macOS by VS Code Helper / Edge DevTools / Code Server, causing `localhost:7778` in the browser to resolve to whichever LISTEN socket the OS picked first — frequently a Code Helper that returned 200 OK but never spoke WebSocket. 16500–16519 is in the IANA unassigned dynamic range with no known squatters.
+- **IPv4-only bind** (`server.listen(port, "127.0.0.1")`). Previous behavior dual-stacked on `::`, which could LISTEN successfully on IPv6 even when an IPv4 squatter already held `127.0.0.1:PORT`. Browsers resolve `localhost` IPv4-first by default, so the browser landed on the squatter instead of inkboard.
+- **`/health` fingerprint** added: payload now includes `app: "inkboard"`, `version`, `pid`, `port`. Server self-checks fingerprint after bind; hook bridge re-checks before trusting `/tmp/inkboard.port`. Stale port files pointing at recycled ports now belonging to another app are detected and the server is re-spawned.
+- **`O_EXCL` lockfile at `/tmp/inkboard-start.lock`** prevents the double-spawn race when two hooks fire concurrently. The first hook spawns; the second polls for readiness.
+
+### Added
+
+- **`questionRoutingEnabled` default flipped to `true`** so a first-time AskUserQuestion lands in the canvas instead of silently no-op'ing in the terminal. Toggle off from the Home dashboard if you prefer terminal pickers.
+- **`~/.config/inkboard/config.json` (XDG)** is the new user config location. Bundled `hooks/hooks.json` is now treated as factory defaults only — any plugin update (`git pull` of the marketplace clone) no longer overwrites your toggles.
+- **Connection banner in canvas Home**: shows live `inkboard v0.2.6 · pid=N · port=N` from `/health`, plus a red error if the port answered as a non-inkboard process.
+- **Structured stderr reasons** when a hook returns `{}`: `routing_disabled` vs `no_canvas_clients` — visible in Claude transcript.
+- **`scripts/uninstall.sh`** one-shot cleanup of marketplace + cache + installed + `/tmp/inkboard.*`. Documented in README under "Re-install / upgrade".
+
+### Changed
+
+- `hook-question.ts` default timeout reduced from 30 min to 5 min.
+- `hook-bridge.ts` no longer falls back to port 7777 if the port file is missing; it now fails loud with a stderr message pointing at the uninstall script.
+- README: new "Re-install / upgrade" section; configuration docs reflect XDG path; environment var table updated to new port range.
+
+### Migration notes
+
+Existing installs: run `bash <(curl -fsSL https://raw.githubusercontent.com/junzhin/inkboard/main/scripts/uninstall.sh)`, then `/plugin marketplace add junzhin/inkboard` + `/plugin install inkboard@inkboard`. The marketplace clone is *not* refreshed by `/plugin marketplace add` alone — only by removing it first.
+
 ## 2026-05-18 (v0.2.5 — plan review actually reaches the canvas)
 
 ### Fixed

@@ -18429,10 +18429,10 @@ var require_view = __commonJS({
     var debug = require_src()("express:view");
     var path = __require("path");
     var fs = __require("fs");
-    var dirname2 = path.dirname;
+    var dirname3 = path.dirname;
     var basename2 = path.basename;
     var extname = path.extname;
-    var join2 = path.join;
+    var join3 = path.join;
     var resolve = path.resolve;
     module.exports = View;
     function View(name, options) {
@@ -18468,7 +18468,7 @@ var require_view = __commonJS({
       for (var i = 0; i < roots.length && !path2; i++) {
         var root = roots[i];
         var loc = resolve(root, name);
-        var dir = dirname2(loc);
+        var dir = dirname3(loc);
         var file = basename2(loc);
         path2 = this.resolve(dir, file);
       }
@@ -18480,12 +18480,12 @@ var require_view = __commonJS({
     };
     View.prototype.resolve = function resolve2(dir, file) {
       var ext = this.ext;
-      var path2 = join2(dir, file);
+      var path2 = join3(dir, file);
       var stat = tryStat(path2);
       if (stat && stat.isFile()) {
         return path2;
       }
-      path2 = join2(dir, basename2(file, ext), "index" + ext);
+      path2 = join3(dir, basename2(file, ext), "index" + ext);
       stat = tryStat(path2);
       if (stat && stat.isFile()) {
         return path2;
@@ -19118,7 +19118,7 @@ var require_send = __commonJS({
     var Stream = __require("stream");
     var util = __require("util");
     var extname = path.extname;
-    var join2 = path.join;
+    var join3 = path.join;
     var normalize = path.normalize;
     var resolve = path.resolve;
     var sep = path.sep;
@@ -19337,7 +19337,7 @@ var require_send = __commonJS({
           return res;
         }
         parts = path2.split(sep);
-        path2 = normalize(join2(root, path2));
+        path2 = normalize(join3(root, path2));
       } else {
         if (UP_PATH_REGEXP.test(path2)) {
           debug('malicious path "%s"', path2);
@@ -19472,7 +19472,7 @@ var require_send = __commonJS({
           if (err) return self.onStatError(err);
           return self.error(404);
         }
-        var p = join2(path2, self._index[i]);
+        var p = join3(path2, self._index[i]);
         debug('stat "%s"', p);
         fs.stat(p, function(err2, stat) {
           if (err2) return next(err2);
@@ -20761,12 +20761,12 @@ var require_application = __commonJS({
     };
     app2.set = function set(setting, val) {
       if (arguments.length === 1) {
-        var settings = this.settings;
-        while (settings && settings !== Object.prototype) {
-          if (hasOwnProperty.call(settings, setting)) {
-            return settings[setting];
+        var settings2 = this.settings;
+        while (settings2 && settings2 !== Object.prototype) {
+          if (hasOwnProperty.call(settings2, setting)) {
+            return settings2[setting];
           }
-          settings = Object.getPrototypeOf(settings);
+          settings2 = Object.getPrototypeOf(settings2);
         }
         return void 0;
       }
@@ -26235,9 +26235,9 @@ var import_express3 = __toESM(require_express2(), 1);
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { platform } from "node:os";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { join as join2, dirname as dirname2 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+import { writeFileSync as writeFileSync2, existsSync as existsSync2 } from "node:fs";
 
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);
@@ -26253,7 +26253,8 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 var ServerState = class {
   pendingQuestions = /* @__PURE__ */ new Map();
   pendingPlanReviews = /* @__PURE__ */ new Map();
-  questionRoutingEnabled = false;
+  questionRoutingEnabled = true;
+  boundPort = null;
   counter = 0;
   nextId() {
     return `ink_${Date.now()}_${++this.counter}`;
@@ -26330,6 +26331,43 @@ var ServerState = class {
 };
 var state = new ServerState();
 
+// src/config.ts
+import { homedir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+var __dirname = dirname(fileURLToPath(import.meta.url));
+var bundledConfigPath = join(__dirname, "..", "..", "hooks", "hooks.json");
+var userConfigDir = join(homedir(), ".config", "inkboard");
+var userConfigPath = join(userConfigDir, "config.json");
+function readJson(path) {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function loadSettings() {
+  const bundled = readJson(bundledConfigPath)?.settings ?? {};
+  const user = readJson(userConfigPath)?.settings ?? {};
+  return { ...bundled, ...user };
+}
+function saveUserConfig(patch) {
+  try {
+    mkdirSync(userConfigDir, { recursive: true });
+    const current = readJson(userConfigPath) ?? { settings: {} };
+    const merged = {
+      ...current,
+      settings: { ...current.settings ?? {}, ...patch }
+    };
+    writeFileSync(userConfigPath, JSON.stringify(merged, null, 2));
+  } catch (err) {
+    process.stderr.write(`[inkboard] failed to persist user config: ${err}
+`);
+  }
+}
+
 // src/ws.ts
 var clients = /* @__PURE__ */ new Set();
 function setupWebSocket(server2) {
@@ -26351,8 +26389,8 @@ function setupWebSocket(server2) {
     });
     const status = { type: "server-status", status: "ready" };
     ws.send(JSON.stringify(status));
-    const settings = { type: "settings-sync", questionRoutingEnabled: state.questionRoutingEnabled };
-    ws.send(JSON.stringify(settings));
+    const settings2 = { type: "settings-sync", questionRoutingEnabled: state.questionRoutingEnabled };
+    ws.send(JSON.stringify(settings2));
     replayPendingItems(ws);
   });
   return wss;
@@ -26398,6 +26436,7 @@ function handleClientMessage(msg) {
       break;
     case "toggle-question-routing":
       state.questionRoutingEnabled = msg.enabled;
+      saveUserConfig({ questionRoutingEnabled: msg.enabled });
       broadcast({ type: "settings-sync", questionRoutingEnabled: msg.enabled });
       break;
   }
@@ -26420,11 +26459,21 @@ function hasClients() {
 // src/routes/hook-question.ts
 var import_express = __toESM(require_express2(), 1);
 var router = (0, import_express.Router)();
-var TIMEOUT_MS = 18e5;
+var TIMEOUT_MS = 5 * 6e4;
 var CANVAS_TIMEOUT_MS = 6e4;
 router.post("/", async (req, res) => {
   const input = req.body;
-  if (!state.questionRoutingEnabled || !hasClients()) {
+  if (!state.questionRoutingEnabled) {
+    process.stderr.write(
+      "[inkboard] question NOT routed: routing disabled (toggle in canvas Home \u2192 'Route questions to canvas').\n"
+    );
+    res.json({});
+    return;
+  }
+  if (!hasClients()) {
+    process.stderr.write(
+      "[inkboard] question NOT routed: no canvas client connected. Open the canvas tab and retry.\n"
+    );
     res.json({});
     return;
   }
@@ -26581,7 +26630,7 @@ router2.post("/", async (req, res) => {
     state.resolvePlanReview(id, { approved: true, annotations: [] });
     try {
       process.stderr.write(
-        "[inkboard] canvas never connected within 20s \u2014 auto-approving plan. Open http://localhost:" + (process.env.INKBOARD_PORT ?? "7777-7787") + " manually to use the canvas.\n"
+        "[inkboard] canvas never connected within 20s \u2014 auto-approving plan. Open http://localhost:" + (process.env.INKBOARD_PORT ?? "16500-16519") + " manually to use the canvas.\n"
       );
     } catch {
     }
@@ -26604,15 +26653,24 @@ router2.post("/", async (req, res) => {
 var hook_plan_review_default = router2;
 
 // src/index.ts
-var __dirname = dirname(fileURLToPath(import.meta.url));
-var PORT_START = 7777;
-var PORT_END = 7787;
+var __dirname2 = dirname2(fileURLToPath2(import.meta.url));
+var VERSION = "0.2.6";
+var APP_TAG = "inkboard";
+var PORT_START = 16500;
+var PORT_END = 16519;
+var HOST = "127.0.0.1";
 var PID_FILE = "/tmp/inkboard.pid";
 var PORT_FILE = "/tmp/inkboard.port";
 var app = (0, import_express3.default)();
 app.use(import_express3.default.json({ limit: "10mb" }));
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.2.5" });
+  res.json({
+    status: "ok",
+    app: APP_TAG,
+    version: VERSION,
+    pid: process.pid,
+    port: state.boundPort ?? null
+  });
 });
 app.use("/hooks/question", hook_question_default);
 app.use("/hooks/plan-review", hook_plan_review_default);
@@ -26669,21 +26727,15 @@ Build feature X for session ${sessionName}.
     res.json({ pushed: true, clientsConnected, id });
   });
 }
-var hooksConfigPath = join(__dirname, "..", "..", "hooks", "hooks.json");
-if (existsSync(hooksConfigPath)) {
-  try {
-    const cfg = JSON.parse(readFileSync(hooksConfigPath, "utf-8"));
-    if (cfg.settings?.questionRoutingEnabled != null) {
-      state.questionRoutingEnabled = Boolean(cfg.settings.questionRoutingEnabled);
-    }
-  } catch {
-  }
+var settings = loadSettings();
+if (typeof settings.questionRoutingEnabled === "boolean") {
+  state.questionRoutingEnabled = settings.questionRoutingEnabled;
 }
-var webDist = join(__dirname, "..", "..", "web", "dist");
-if (existsSync(webDist)) {
+var webDist = join2(__dirname2, "..", "..", "web", "dist");
+if (existsSync2(webDist)) {
   app.use(import_express3.default.static(webDist));
   app.get("*", (_req, res) => {
-    res.sendFile(join(webDist, "index.html"));
+    res.sendFile(join2(webDist, "index.html"));
   });
 }
 var server = createServer(app);
@@ -26693,26 +26745,51 @@ async function isPortFree(port) {
   return new Promise((resolve) => {
     const tester = createNetServer();
     tester.once("error", () => resolve(false));
-    tester.listen(port, () => {
+    tester.listen(port, HOST, () => {
       tester.close(() => resolve(true));
     });
   });
 }
+async function fingerprintMatches(port) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 800);
+    const res = await fetch(`http://${HOST}:${port}/health`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return false;
+    const body = await res.json();
+    return body.app === APP_TAG && body.pid === process.pid;
+  } catch {
+    return false;
+  }
+}
+async function tryBind(port) {
+  return new Promise((resolve) => {
+    const onError = () => {
+      server.off("listening", onListening);
+      resolve(false);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      resolve(true);
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, HOST);
+  });
+}
 async function findPort() {
   const envPort = parseInt(process.env.INKBOARD_PORT ?? "", 10);
-  if (envPort && await isPortFree(envPort)) {
-    await new Promise((resolve) => {
-      server.listen(envPort, resolve);
-    });
-    return envPort;
-  }
-  for (let port = PORT_START; port <= PORT_END; port++) {
-    if (await isPortFree(port)) {
-      await new Promise((resolve) => {
-        server.listen(port, resolve);
-      });
+  const candidates = [];
+  if (envPort) candidates.push(envPort);
+  for (let p = PORT_START; p <= PORT_END; p++) candidates.push(p);
+  for (const port of candidates) {
+    if (!await isPortFree(port)) continue;
+    if (!await tryBind(port)) continue;
+    if (await fingerprintMatches(port)) {
       return port;
     }
+    await new Promise((resolve) => server.close(() => resolve()));
   }
   throw new Error(`No available port in ${PORT_START}-${PORT_END}`);
 }
@@ -26740,11 +26817,14 @@ function openBrowser(url) {
   }
 }
 findPort().then((port) => {
-  writeFileSync(PID_FILE, String(process.pid));
-  writeFileSync(PORT_FILE, String(port));
-  console.log(`[inkboard] server running on http://localhost:${port}`);
-  console.log(`[inkboard] PID ${process.pid} written to ${PID_FILE}`);
+  state.boundPort = port;
+  writeFileSync2(PID_FILE, String(process.pid));
+  writeFileSync2(PORT_FILE, String(port));
+  console.log(`[inkboard] server v${VERSION} running on http://${HOST}:${port} (pid ${process.pid})`);
   openBrowser(`http://localhost:${port}`);
+}).catch((err) => {
+  console.error(`[inkboard] failed to bind: ${err.message}`);
+  process.exit(1);
 });
 process.on("SIGINT", () => {
   console.log("\n[inkboard] shutting down...");

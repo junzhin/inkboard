@@ -9,7 +9,7 @@ PID_FILE="/tmp/inkboard.pid"
 PORT_FILE="/tmp/inkboard.port"
 
 if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-  PORT=$(cat "$PORT_FILE" 2>/dev/null || echo "7777")
+  PORT=$(cat "$PORT_FILE" 2>/dev/null || echo "16500")
   echo "[inkboard] Already running (PID $(cat "$PID_FILE"), port $PORT)"
   exit 0
 fi
@@ -50,7 +50,7 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
   exit 1
 fi
 
-PORT=$(cat "$PORT_FILE" 2>/dev/null || echo "7777")
+PORT=$(cat "$PORT_FILE" 2>/dev/null || echo "16500")
 URL="http://localhost:$PORT"
 
 # Export for Claude Code hooks to find the compiled hook scripts

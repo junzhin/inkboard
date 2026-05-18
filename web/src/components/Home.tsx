@@ -30,6 +30,13 @@ const TONE_BADGE: Record<"ink" | "moss" | "rust" | "ochre", string> = {
   ochre: "border-ochre-200 bg-ochre-50 text-ochre-600",
 };
 
+interface HealthInfo {
+  app?: string;
+  version?: string;
+  pid?: number;
+  port?: number | null;
+}
+
 export function Home() {
   const {
     connected,
@@ -41,10 +48,38 @@ export function Home() {
     setView,
   } = useStore();
   const [now, setNow] = useState(Date.now());
+  const [health, setHealth] = useState<HealthInfo | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const r = await fetch("/health", { cache: "no-store" });
+        const body = (await r.json()) as HealthInfo;
+        if (cancelled) return;
+        if (body.app !== "inkboard") {
+          setHealthError(`Port answered but is not inkboard (app=${body.app ?? "unknown"})`);
+          setHealth(null);
+          return;
+        }
+        setHealth(body);
+        setHealthError(null);
+      } catch (err) {
+        if (!cancelled) setHealthError(String(err));
+      }
+    }
+    poll();
+    const t = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
   }, []);
 
   const port =
@@ -225,12 +260,21 @@ export function Home() {
         />
       </section>
 
-      {!connected && (
+      {health && !healthError && (
+        <div className="rounded-md border border-moss-400/30 bg-moss-400/10 text-moss-700 px-4 py-2 text-xs flex items-center gap-3 font-mono">
+          <span className="h-1.5 w-1.5 rounded-full bg-moss-500 animate-pulse-dot" />
+          <span>
+            Connected to inkboard v{health.version} · pid={health.pid} · port={health.port ?? port}
+          </span>
+        </div>
+      )}
+      {(healthError || !connected) && (
         <div className="rounded-md border border-rust-400/30 bg-rust-400/10 text-rust-600 px-4 py-3 text-sm flex items-center gap-3 animate-rise-in">
           <span className="h-2 w-2 rounded-full bg-rust-500" />
           <span>
-            Disconnected from the InkBoard server. Start it with <Code>bash scripts/start.sh</Code> — the
-            canvas reconnects automatically.
+            {healthError
+              ? `Port ${port} did not respond as inkboard: ${healthError}. Run the uninstall script and reinstall.`
+              : "Disconnected from the InkBoard server. The canvas reconnects automatically; if it doesn't, run `bash scripts/start.sh`."}
           </span>
         </div>
       )}
