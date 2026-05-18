@@ -2,7 +2,7 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 
 // src/hooks/hook-bridge.ts
-import { readFileSync, existsSync, appendFileSync, openSync, unlinkSync, closeSync, constants as fsConstants } from "node:fs";
+import { readFileSync, existsSync, appendFileSync, openSync, unlinkSync, closeSync, statSync, constants as fsConstants } from "node:fs";
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,8 @@ var PORT_FILE = "/tmp/inkboard.port";
 var LOCK_FILE = "/tmp/inkboard-start.lock";
 var APP_TAG = "inkboard";
 var HOST = "127.0.0.1";
+var PORT_TRUST_MS = 5 * 6e4;
+var FINGERPRINT_TIMEOUT_MS = 300;
 function makeDebug(logFile) {
   return (msg) => {
     try {
@@ -44,12 +46,23 @@ function sleep(ms) {
 async function fingerprintHealthy(port) {
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 800);
+    const t = setTimeout(() => ctrl.abort(), FINGERPRINT_TIMEOUT_MS);
     const res = await fetch(`http://${HOST}:${port}/health`, { signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return false;
     const body = await res.json();
     return body.app === APP_TAG;
+  } catch {
+    return false;
+  }
+}
+function isLikelyAlive(port) {
+  if (port <= 0) return false;
+  if (!existsSync(PID_FILE) || !existsSync(PORT_FILE)) return false;
+  if (!isProcessAlive(PID_FILE)) return false;
+  try {
+    const age = Date.now() - statSync(PORT_FILE).mtimeMs;
+    return age < PORT_TRUST_MS;
   } catch {
     return false;
   }
@@ -125,7 +138,12 @@ async function bridgeHook(endpoint, opts = {}) {
   if (!port && existsSync(PORT_FILE)) {
     port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
   }
-  const alive = existsSync(PID_FILE) && isProcessAlive(PID_FILE) && port > 0 && await fingerprintHealthy(port);
+  let alive = isLikelyAlive(port);
+  if (!alive) {
+    if (port > 0 && await fingerprintHealthy(port)) {
+      alive = true;
+    }
+  }
   if (!alive) {
     if (port > 0) {
       debug(`fingerprint failed for port=${port}, restarting`);
@@ -156,8 +174,6 @@ async function bridgeHook(endpoint, opts = {}) {
     process.exit(0);
   }
   debug(`port=${port}`);
-  const stdin = await readStdin();
-  debug(`stdin length=${stdin.length}`);
   const flowLabel = endpoint.includes("plan-review") ? "Plan review" : "Question";
   try {
     process.stderr.write(
@@ -166,6 +182,8 @@ async function bridgeHook(endpoint, opts = {}) {
     );
   } catch {
   }
+  const stdin = await readStdin();
+  debug(`stdin length=${stdin.length}`);
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

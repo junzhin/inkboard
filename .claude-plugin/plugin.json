@@ -1,6 +1,6 @@
 {
   "name": "inkboard",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Browser canvas for Claude Code — visual plan review, structured questions, inline annotations",
   "author": { "name": "junzhin", "url": "https://github.com/junzhin" },
   "license": "MIT",

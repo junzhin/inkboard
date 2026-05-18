@@ -6,7 +6,7 @@
     {
       "name": "inkboard",
       "source": "./",
-      "version": "0.2.6",
+      "version": "0.2.7",
       "category": "workflow",
       "tags": ["plan-review", "canvas", "hooks", "questions", "annotations"],
       "homepage": "https://github.com/junzhin/inkboard",

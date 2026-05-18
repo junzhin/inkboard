@@ -107,14 +107,16 @@ The first time Claude Code triggers an InkBoard hook in a session:
 2. Your default browser **auto-opens** `http://localhost:<port>` to the InkBoard canvas.
 3. Claude Code shows a hint in the terminal:
    ```
-   [inkboard] Plan review sent to canvas → http://localhost:7777
+   [inkboard] Plan review sent to canvas → http://localhost:16500
    ```
    If the browser didn't open automatically (headless / remote machine / `INKBOARD_NO_BROWSER=1`), click that URL or open it manually.
 4. Approve / annotate / deny in the browser. Claude Code continues with your decision.
 
 For **plan review** (`ExitPlanMode`), the server waits up to **20 seconds** for the browser to connect (covers cold-start across platforms) and the plan is registered up-front, so a freshly-opening canvas always picks it up via the replay-on-connect channel. If those 20 seconds elapse with no canvas client (e.g. browser opener failed, you're on a headless box), the hook auto-allows and prints a one-line hint pointing to the URL.
 
-For **questions** (`AskUserQuestion`), the canvas is opt-in via `questionRoutingEnabled`. When disabled or no canvas is connected, questions stay in the terminal picker.
+> **Heads-up on the native ExitPlanMode prompt** — Claude Code shows its own permission prompt at the same time the canvas opens. When you see plan content in the canvas, decide there; the native prompt will close when the canvas decision lands. If you click the native prompt before the canvas appears, the canvas section may stay empty for that one request (v0.2.7 closes most of this race; full elimination needs an upstream hook protocol change).
+
+For **questions** (`AskUserQuestion`), the canvas is on by default (`questionRoutingEnabled: true`). Toggle off from the Home dashboard to keep questions in the terminal picker.
 
 ---
 

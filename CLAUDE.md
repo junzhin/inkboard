@@ -40,10 +40,15 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 - Immutable Zustand updates: `set((s) => ({...}))`, never mutate `s.*` in place.
 - `position: fixed` toolbars use viewport coords (no `scrollY` offset).
 - Headless verification: `chrome.exe --headless --dump-dom http://localhost:$PORT/?test=plan` reads `web/dist` and confirms render.
+- **Server binds IPv4 only** (`127.0.0.1`) and uses port range 16500–16519. Do not change to `0.0.0.0` or to a different port band without confirming there are no LISTEN squatters on the new band on macOS.
+- **`/health` fingerprint contract**: payload must include `app: "inkboard"`, `version`, `pid`, `port`. Hook bridge and canvas both check `app === "inkboard"` to detect port squatters. Don't rename the field.
+- **Hook bridge fast path** (`hook-bridge.ts`): PID alive + `PORT_FILE` mtime < 5 min ⇒ skip `/health` round-trip. This is what keeps plan-review alive against Claude Code's native ExitPlanMode UI race. Any new pre-POST await goes behind this check.
+- **User config lives at `~/.config/inkboard/config.json`** (XDG). `hooks/hooks.json` inside the marketplace clone is *factory defaults only* — gets overwritten on `git pull`. Anything that needs to persist across plugin updates must go through `server/src/config.ts` `saveUserConfig()`.
 
 ## Known limits
 
 - **Approve (auto-edit)** sends a hint via the deny `message` field, but Claude Code's `PermissionRequest` decision schema does not actually toggle auto-edit mode for subsequent file edits. The button is honest about its intent; whether downstream tooling honors it is out of scope.
+- **Native UI race on PermissionRequest hooks**: Claude Code shows its native ExitPlanMode prompt *concurrently* with our hook. If the user clicks the native prompt before our POST goes out, the hook child gets SIGTERM'd. v0.2.7 minimises the race window (no pre-POST `/health` round-trip on the happy path); fully eliminating it requires Claude Code to add `async: true` ack to the `PermissionRequest` hook protocol.
 - **No persistence**: pending reviews lost on server restart.
 - **Single-user, single-machine**: no auth, binds to localhost only.
 
@@ -55,6 +60,27 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 - Don't add state mutations or Promise wrappers for things that should be transient UI state.
 
 ## Changelog
+
+### 2026-05-18 (v0.2.7)
+
+- **Plan-review hook no longer dies in race with Claude Code's native ExitPlanMode UI.** Removed the 800 ms `/health` fingerprint await from the happy path in `hook-bridge.ts`. New `isLikelyAlive()` check trusts PID + `PORT_FILE` mtime under 5 min; fingerprint only runs on cold path. Stderr "sent to canvas" hint moved before `readStdin()` so it lands even if SIGTERM arrives mid-stdin.
+
+### 2026-05-18 (v0.2.6)
+
+- **Port range moved to 16500–16519** (was 7777–7787, which collided with VS Code Helper / Edge DevTools).
+- **IPv4-only bind** (`server.listen(port, "127.0.0.1")`). Previous `::` dual-stack bind let IPv4 squatters intercept the browser's `localhost` lookup.
+- **`/health` fingerprint**: includes `app`, `version`, `pid`, `port`. Server self-checks after bind; hook bridge re-checks on cold path.
+- **`O_EXCL` lockfile** dedupes concurrent lazy-start spawns.
+- **User config moved to `~/.config/inkboard/config.json`** (XDG). `hooks/hooks.json` in the marketplace clone is factory-defaults only.
+- **`questionRoutingEnabled` default flipped to `true`**.
+- **Connection banner in Home**: live `/health` poll shows port + pid + version.
+- **`scripts/uninstall.sh`**: one-shot cleanup of marketplace + cache + installed + `/tmp/inkboard.*`.
+- **hook-question timeout** 30 min → 5 min.
+
+### 2026-05-18 (v0.2.5)
+
+- **Plan-review actually reaches the canvas.** Removed the `if (!hasClients()) allow` short-circuit in `hook-plan-review.ts` that fired before `state.addPlanReview()`. Pending is now registered synchronously up-front; broadcast goes out, then we wait up to 20 s for a WS client. Replay-on-reconnect picks up the plan once the browser finishes its handshake. If 20 s elapse with no client, auto-allow + stderr hint pointing at the canvas URL.
+- Regression guard test in `state.test.ts`.
 
 ### 2026-05-16 (v0.2.0)
 

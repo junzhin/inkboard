@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-05-18 (v0.2.7 — fix plan-review race with native ExitPlanMode UI)
+
+### Fixed
+
+- **Canvas plan-review section stayed empty when the user clicked the native ExitPlanMode permission UI** (P1, UX-blocking). Claude Code displays its native reject/approve prompt *concurrently* with the `PermissionRequest` hook. If the user clicked the native prompt within roughly 100–800 ms of `ExitPlanMode` firing, Claude Code SIGTERM'd our hook child process while it was still awaiting an 800 ms `/health` fingerprint round-trip. Result: `POST /hooks/plan-review` never went out, the server never broadcast, and the canvas Review tab stayed blank. Question hook didn't exhibit this because `AskUserQuestion` has no native reject UI racing with it.
+- **Fix**: `hook-bridge.ts` now uses a fast liveness check (`isLikelyAlive`) — PID alive + `PORT_FILE` mtime under 5 minutes — and skips the `/health` round-trip entirely on the happy path. `fingerprintHealthy()` is only called when PID is dead or `PORT_FILE` is missing/stale. Fingerprint abort timeout also reduced from 800 ms to 300 ms for the cold path.
+- **Earlier stderr hint**: the `[inkboard] Plan review sent to canvas →` line now writes before `readStdin()` instead of after, so even if Claude Code kills us mid-stdin the user sees where the canvas lives.
+
+### Why the fast path is still safe
+
+- A stale `PORT_FILE` pointing at a recycled port is the only risk we trade off. We mitigate by:
+  - PID file must point at an alive process (`kill(0)`), which fails for dead servers.
+  - `PORT_FILE` mtime under 5 minutes — anything older drops to the slow path with full fingerprint.
+  - Server-side fingerprint after bind (v0.2.6) prevents the wrong port from ever being written to `PORT_FILE` in the first place.
+
+### Out of scope (deferred)
+
+- **Fix 3 — async hook protocol**: would require Claude Code's `PermissionRequest` hook to support an `async: true` ack so the native UI suppresses itself. Not in current protocol; if/when added we can do a one-line follow-up.
+- **Fix 2 — streaming POST body**: would parallelise stdin with the HTTP request. Saves at most a few ms; not worth the complexity now.
+
 ## 2026-05-18 (v0.2.6 — port collision + stale cache hygiene)
 
 ### Fixed (the "canvas opens but review section is empty" bug — round two)
