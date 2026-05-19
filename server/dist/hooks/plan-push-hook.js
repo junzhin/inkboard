@@ -2,7 +2,7 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 
 // src/hooks/plan-push-hook.ts
-import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2, statSync as statSync2, appendFileSync as appendFileSync2 } from "node:fs";
 import { join as join2 } from "node:path";
 
 // src/hooks/hook-bridge.ts
@@ -88,31 +88,31 @@ function releaseLock(fd) {
   } catch {
   }
 }
-async function waitForReady(debug, attempts = 60) {
+async function waitForReady(debug2, attempts = 60) {
   for (let i = 0; i < attempts; i++) {
     await sleep(250);
     if (!existsSync(PORT_FILE) || !isProcessAlive(PID_FILE)) continue;
     const port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
     if (port && await fingerprintHealthy(port)) {
-      debug(`ready after ${(i + 1) * 250}ms port=${port}`);
+      debug2(`ready after ${(i + 1) * 250}ms port=${port}`);
       return true;
     }
   }
-  debug("waitForReady timed out");
+  debug2("waitForReady timed out");
   return false;
 }
-async function lazyStart(debug) {
+async function lazyStart(debug2) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const indexJs = join(__dirname, "..", "index.js");
   if (!existsSync(indexJs)) {
-    debug(`index.js not found at ${indexJs}`);
+    debug2(`index.js not found at ${indexJs}`);
     return false;
   }
   const lockFd = tryAcquireLock();
   if (lockFd == null) {
-    debug("another hook holds start lock \u2014 waiting for server to come up");
-    return waitForReady(debug);
+    debug2("another hook holds start lock \u2014 waiting for server to come up");
+    return waitForReady(debug2);
   }
   try {
     try {
@@ -123,12 +123,12 @@ async function lazyStart(debug) {
         env: process.env
       });
       child.unref();
-      debug(`spawned server pid=${child.pid}`);
+      debug2(`spawned server pid=${child.pid}`);
     } catch (err) {
-      debug(`spawn failed: ${err}`);
+      debug2(`spawn failed: ${err}`);
       return false;
     }
-    return await waitForReady(debug);
+    return await waitForReady(debug2);
   } finally {
     releaseLock(lockFd);
   }
@@ -136,8 +136,8 @@ async function lazyStart(debug) {
 async function bridgeHook(endpoint, opts = {}) {
   const fallback = opts.fallback ?? "{}";
   const timeoutMs = opts.timeoutMs ?? 54e3;
-  const debug = makeDebug(opts.logFile ?? "/tmp/inkboard-hook-bridge.log");
-  debug(`bridgeHook called: ${endpoint}`);
+  const debug2 = makeDebug(opts.logFile ?? "/tmp/inkboard-hook-bridge.log");
+  debug2(`bridgeHook called: ${endpoint}`);
   let port = parseInt(process.env.INKBOARD_PORT ?? "", 10);
   if (!port && existsSync(PORT_FILE)) {
     port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
@@ -150,13 +150,13 @@ async function bridgeHook(endpoint, opts = {}) {
   }
   if (!alive) {
     if (port > 0) {
-      debug(`fingerprint failed for port=${port}, restarting`);
+      debug2(`fingerprint failed for port=${port}, restarting`);
     } else {
-      debug("server not running, attempting lazy start");
+      debug2("server not running, attempting lazy start");
     }
-    const started = await lazyStart(debug);
+    const started = await lazyStart(debug2);
     if (!started) {
-      debug("lazy start failed, fallback");
+      debug2("lazy start failed, fallback");
       process.stderr.write(
         "[inkboard] server did not come up \u2014 falling back to terminal. Run `bash <(curl -fsSL https://raw.githubusercontent.com/junzhin/inkboard/main/scripts/uninstall.sh)` then reinstall if this persists.\n"
       );
@@ -170,14 +170,14 @@ async function bridgeHook(endpoint, opts = {}) {
     }
   }
   if (!port) {
-    debug("no port available after lazy start \u2014 fatal");
+    debug2("no port available after lazy start \u2014 fatal");
     process.stderr.write("[inkboard] FATAL: no port file. Run /plugin uninstall inkboard && reinstall.\n");
     await new Promise(
       (resolve) => process.stdout.write(fallback, () => resolve())
     );
     process.exit(0);
   }
-  debug(`port=${port}`);
+  debug2(`port=${port}`);
   const flowLabel = endpoint.includes("plan-review") ? "Plan review" : "Question";
   try {
     process.stderr.write(
@@ -187,9 +187,9 @@ async function bridgeHook(endpoint, opts = {}) {
   } catch {
   }
   const stdin = await readStdin();
-  debug(`stdin length=${stdin.length}`);
+  debug2(`stdin length=${stdin.length}`);
   const postBody = opts.transformBody ? await opts.transformBody(stdin) : stdin;
-  if (postBody !== stdin) debug(`transformBody produced ${postBody.length} bytes`);
+  if (postBody !== stdin) debug2(`transformBody produced ${postBody.length} bytes`);
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -201,18 +201,18 @@ async function bridgeHook(endpoint, opts = {}) {
     });
     clearTimeout(timeout);
     const rawBody = await res.text();
-    debug(`response status=${res.status} bytes=${rawBody.length}`);
+    debug2(`response status=${res.status} bytes=${rawBody.length}`);
     const body = opts.transformResponse ? opts.transformResponse(rawBody) : rawBody;
-    if (body !== rawBody) debug(`transformResponse: ${rawBody.slice(0, 120)} \u2192 ${body.slice(0, 120)}`);
+    if (body !== rawBody) debug2(`transformResponse: ${rawBody.slice(0, 120)} \u2192 ${body.slice(0, 120)}`);
     const parsed = JSON.parse(body || "{}");
     const isBlock = parsed.decision === "block";
     await new Promise(
       (resolve) => process.stdout.write(body || fallback, () => resolve())
     );
-    debug(isBlock ? "exit 0 (block via JSON stdout)" : "exit 0 (allow)");
+    debug2(isBlock ? "exit 0 (block via JSON stdout)" : "exit 0 (allow)");
     process.exit(0);
   } catch (err) {
-    debug(`error: ${err}`);
+    debug2(`error: ${err}`);
     await new Promise(
       (resolve) => process.stdout.write(fallback, () => resolve())
     );
@@ -221,36 +221,62 @@ async function bridgeHook(endpoint, opts = {}) {
 }
 
 // src/hooks/plan-push-hook.ts
+var LOG_FILE = "/tmp/inkboard-plan-push.log";
+function debug(msg) {
+  try {
+    appendFileSync2(LOG_FILE, `${(/* @__PURE__ */ new Date()).toISOString()} [plan-push] ${msg}
+`);
+  } catch {
+  }
+}
 function findLatestPlanFile(cwd) {
   const plansDir = join2(cwd, ".claude", "plans");
-  if (!existsSync2(plansDir)) return null;
+  if (!existsSync2(plansDir)) {
+    debug(`plans dir not found: ${plansDir}`);
+    return null;
+  }
   const files = readdirSync(plansDir).filter((f) => f.endsWith(".md")).map((f) => {
     const p = join2(plansDir, f);
     return { path: p, mtime: statSync2(p).mtimeMs };
   }).sort((a, b) => b.mtime - a.mtime);
-  if (files.length === 0) return null;
+  if (files.length === 0) {
+    debug("plans dir exists but no .md files");
+    return null;
+  }
   const best = files[0];
+  const ageMs = Date.now() - best.mtime;
+  debug(`best plan: ${best.path} age=${Math.round(ageMs / 1e3)}s`);
   return { content: readFileSync2(best.path, "utf-8"), path: best.path, mtime: best.mtime };
 }
-var PLAN_RECENCY_MS = 10 * 6e4;
+var PLAN_RECENCY_MS = 30 * 6e4;
 function transformBody(stdin) {
   let input;
   try {
     input = JSON.parse(stdin);
   } catch {
+    debug("JSON parse failed on stdin");
     return stdin;
   }
+  debug(`tool_name=${input.tool_name ?? "?"} cwd=${input.cwd ?? "?"} session=${input.session_id ?? "?"}`);
   const toolInput = input.tool_input ?? {};
   let plan = toolInput.plan ?? "";
   let filePath = toolInput.file_path;
+  debug(`tool_input.plan length=${plan.length} file_path=${filePath ?? "none"}`);
   if (!plan.trim() && input.cwd) {
     const found = findLatestPlanFile(input.cwd);
     if (found && Date.now() - found.mtime < PLAN_RECENCY_MS) {
       plan = found.content;
       filePath = found.path;
+      debug(`using plan file: ${filePath} (${plan.length} chars)`);
+    } else if (found) {
+      debug(`plan file too old: age=${Math.round((Date.now() - found.mtime) / 1e3)}s > ${PLAN_RECENCY_MS / 1e3}s`);
     }
   }
-  if (!plan.trim()) return stdin;
+  if (!plan.trim()) {
+    debug("no plan content found \u2014 passing stdin through unchanged");
+    return stdin;
+  }
+  debug(`plan found (${plan.length} chars), enriching body for server`);
   return JSON.stringify({
     ...input,
     tool_input: { ...toolInput, plan, file_path: filePath },
@@ -263,20 +289,23 @@ function transformResponse(body) {
     const behavior = parsed?.hookSpecificOutput?.decision?.behavior;
     const message = parsed?.hookSpecificOutput?.decision?.message;
     if (behavior === "deny") {
+      debug(`decision=deny message=${message?.slice(0, 80) ?? "none"}`);
       return JSON.stringify({
         decision: "block",
         reason: message ?? "Changes requested in InkBoard canvas"
       });
     }
+    debug(`decision=allow`);
     return "{}";
   } catch {
+    debug("transformResponse parse error \u2014 allowing");
     return "{}";
   }
 }
 bridgeHook("/hooks/plan-review", {
   fallback: "{}",
   timeoutMs: 18e5,
-  logFile: "/tmp/inkboard-plan-push.log",
+  logFile: LOG_FILE,
   transformBody,
   transformResponse
 });

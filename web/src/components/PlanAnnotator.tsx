@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
 import { wsClient } from "../ws-client";
 import { formatSessionLabel } from "../lib/format";
+import { t } from "../lib/i18n";
 import type { PlanAnnotation, AnnotationType, PlanReviewDecision } from "../types";
 
 interface ToolbarPos {
@@ -39,6 +40,7 @@ export function PlanAnnotator() {
     clearPlanReview,
     pushToast,
     pushActivity,
+    locale: _locale,
   } = useStore();
 
   const activeReview = planReviews.find((r) => r.id === activePlanReviewId) ?? null;
@@ -96,9 +98,9 @@ export function PlanAnnotator() {
     return (
       <div className="max-w-3xl mx-auto p-12 text-center">
         <div className="font-display text-5xl text-ink-300 mb-3">◇</div>
-        <h2 className="font-display text-2xl text-ink-700 mb-2">No active plan</h2>
+        <h2 className="font-display text-2xl text-ink-700 mb-2">{t("plan.empty.title")}</h2>
         <p className="text-sm text-ink-400">
-          Plans appear here automatically when Claude calls <code className="font-mono text-ink-600">ExitPlanMode</code>.
+          {t("plan.empty.hint")}
         </p>
       </div>
     );
@@ -154,7 +156,7 @@ export function PlanAnnotator() {
       decision,
     });
     if (!sent) {
-      pushToast("error", "Disconnected from server — decision not sent. Reconnect and retry.");
+      pushToast("error", t("toast.disconnected"));
       return;
     }
     pushToast(toast.kind, toast.text);
@@ -172,8 +174,8 @@ export function PlanAnnotator() {
       {
         kind: "success",
         text: autoEdit
-          ? `Approved (auto-edit) · sent to Claude (${planAnnotations.length} annotations)`
-          : `Plan approved · sent to Claude (${planAnnotations.length} annotations)`,
+          ? `${t("toast.approved.auto-edit")} (${planAnnotations.length} ${t("plan.annotations")})`
+          : `${t("toast.approved")} (${planAnnotations.length} ${t("plan.annotations")})`,
       },
       { kind: "plan-approved", label: autoEdit ? "Approved (auto-edit)" : "Approved" }
     );
@@ -194,11 +196,13 @@ export function PlanAnnotator() {
       { approved: false, annotations },
       {
         kind: "info",
-        text: `Changes requested · ${annotations.length} annotations sent to Claude`,
+        text: `${t("toast.denied")} · ${annotations.length} ${t("toast.annotations-sent")}`,
       },
-      { kind: "plan-denied", label: `Changes requested (${annotations.length})` }
+      { kind: "plan-denied", label: `${t("toast.denied")} (${annotations.length})` }
     );
   };
+
+  const annCountText = `${planAnnotations.length} ${planAnnotations.length === 1 ? t("plan.annotations.count") : t("plan.annotations.counts")} · ${t("plan.annotations.no-limit")}`;
 
   return (
     <div className="max-w-7xl mx-auto px-6 pb-12">
@@ -240,13 +244,13 @@ export function PlanAnnotator() {
       <header className="flex items-end justify-between mb-6 gap-6 flex-wrap">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-[0.18em] text-ochre-600 font-medium mb-1">
-            Plan Review
+            {t("plan.header")}
           </div>
           <h2 className="font-display text-3xl md:text-4xl text-ink-800 tracking-tight leading-tight">
-            {activeReview.sessionName ?? "Active session"}
+            {activeReview.sessionName ?? t("plan.session.default")}
           </h2>
           <p className="text-xs text-ink-400 font-mono mt-1.5 truncate">
-            {activeReview.filePath ?? "(no file path)"}
+            {activeReview.filePath ?? t("plan.no-file")}
             {activeReview.sessionId && (
               <span className="ml-2 text-ink-300">
                 · session {activeReview.sessionId.slice(0, 12)}
@@ -256,29 +260,29 @@ export function PlanAnnotator() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-xs text-ink-400 num">
-            {planAnnotations.length} annotation{planAnnotations.length === 1 ? "" : "s"} · no time limit
+            {annCountText}
           </span>
           <div className="h-6 w-px bg-paper-300" />
           <button
             onClick={handleDeny}
             className="px-4 py-2 bg-paper-50 border border-rust-400/50 text-rust-600 text-sm font-medium rounded-md hover:bg-rust-400/10 hover:border-rust-500 transition-colors"
-            title="Send annotations back to Claude as feedback"
+            title={t("plan.action.deny")}
           >
-            Request Changes
+            {t("plan.action.deny")}
           </button>
           <button
             onClick={() => handleApprove(false)}
             className="px-4 py-2 bg-paper-50 border border-moss-500/50 text-moss-600 text-sm font-medium rounded-md hover:bg-moss-400/10 hover:border-moss-500 transition-colors"
-            title="Approve plan; Claude will still ask permission for each edit"
+            title={t("plan.action.approve")}
           >
-            Approve
+            {t("plan.action.approve")}
           </button>
           <button
             onClick={() => handleApprove(true)}
             className="px-4 py-2 bg-ink-800 text-paper-100 text-sm font-medium rounded-md hover:bg-ink-900 transition-colors shadow-sm border border-ink-900"
-            title="Approve plan AND signal auto-edit intent"
+            title={t("plan.action.auto-edit")}
           >
-            Approve + auto-edit →
+            {t("plan.action.auto-edit")}
           </button>
         </div>
       </header>
@@ -296,16 +300,16 @@ export function PlanAnnotator() {
           </div>
           <div className="surface-paper-flat rounded-md p-3">
             <label className="block text-[10px] uppercase tracking-[0.16em] font-medium text-ink-500 mb-1.5">
-              Global note
+              {t("plan.global-note")}
               <span className="ml-1.5 text-ink-300 normal-case tracking-normal text-[11px]">
-                — added to feedback if you Request Changes
+                {t("plan.global-note.hint")}
               </span>
             </label>
             <textarea
               value={globalDraft}
               onChange={(e) => setGlobalDraft(e.target.value)}
               rows={2}
-              placeholder="High-level concerns about the whole plan…"
+              placeholder={t("plan.global-note.placeholder")}
               className="w-full text-sm bg-transparent border border-paper-200 rounded p-2 focus:border-ochre-400 outline-none placeholder-ink-300 resize-y"
             />
           </div>
@@ -314,7 +318,7 @@ export function PlanAnnotator() {
         <aside className="col-span-3 lg:col-span-1">
           <div className="surface-paper rounded-lg p-4 sticky top-20">
             <div className="flex items-baseline justify-between mb-3 pb-2 border-b border-paper-200">
-              <h3 className="font-display text-lg text-ink-800 tracking-tight">Annotations</h3>
+              <h3 className="font-display text-lg text-ink-800 tracking-tight">{t("plan.annotations")}</h3>
               <span className="text-[11px] uppercase tracking-[0.16em] text-ink-400 num">
                 {planAnnotations.length}
               </span>
@@ -323,7 +327,7 @@ export function PlanAnnotator() {
               <div className="py-6 text-center">
                 <div className="font-display text-2xl text-ink-300 mb-1">◌</div>
                 <p className="text-xs text-ink-400 max-w-[200px] mx-auto leading-relaxed">
-                  Select text in the plan to annotate.
+                  {t("plan.annotations.empty")}
                 </p>
               </div>
             ) : (
@@ -344,7 +348,7 @@ export function PlanAnnotator() {
                           <button
                             onClick={() => beginEdit(a)}
                             className="text-ink-300 hover:text-ochre-600 text-[11px] leading-none"
-                            title="Edit comment"
+                            title="Edit"
                           >
                             ✎
                           </button>
@@ -352,7 +356,7 @@ export function PlanAnnotator() {
                         <button
                           onClick={() => removePlanAnnotation(activeReview.id, a.id)}
                           className="text-ink-300 hover:text-rust-500 text-[12px] leading-none"
-                          title="Delete annotation"
+                          title="Delete"
                         >
                           ×
                         </button>
@@ -363,11 +367,11 @@ export function PlanAnnotator() {
                         a.type === "deletion" ? "line-through text-ink-400" : "text-ink-700"
                       }`}
                     >
-                      <span className="text-ink-300">“</span>
+                      <span className="text-ink-300">"</span>
                       {a.selectedText.length > 80
                         ? a.selectedText.slice(0, 80) + "…"
                         : a.selectedText}
-                      <span className="text-ink-300">”</span>
+                      <span className="text-ink-300">"</span>
                     </div>
                     {editingId === a.id ? (
                       <div className="mt-2">
@@ -384,7 +388,7 @@ export function PlanAnnotator() {
                             }
                           }}
                           rows={3}
-                          placeholder="Enter = save · Shift+Enter = newline · Esc = cancel"
+                          placeholder={t("plan.edit.placeholder")}
                           className="w-full text-xs bg-paper-50 border border-paper-200 rounded p-1.5 focus:border-ochre-400 outline-none placeholder-ink-300"
                         />
                         <div className="flex justify-end gap-1 mt-1">
@@ -392,13 +396,13 @@ export function PlanAnnotator() {
                             onClick={() => setEditingId(null)}
                             className="px-2 py-0.5 text-[10px] text-ink-500 hover:bg-paper-100 rounded"
                           >
-                            Cancel
+                            {t("plan.edit.cancel")}
                           </button>
                           <button
                             onClick={() => saveEdit(a)}
                             className="px-2 py-0.5 text-[10px] bg-ink-800 text-paper-100 rounded hover:bg-ink-900"
                           >
-                            Save
+                            {t("plan.edit.save")}
                           </button>
                         </div>
                       </div>
@@ -426,16 +430,16 @@ export function PlanAnnotator() {
             transform: "translateX(-50%)",
           }}
         >
-          <ToolbarBtn onClick={handleCommentClick} icon="💬" label="Comment" />
+          <ToolbarBtn onClick={handleCommentClick} icon="💬" label={t("plan.toolbar.comment")} />
           <ToolbarBtn
             onClick={() => createAnnotation("comment", "(highlight)", toolbar.text)}
             icon="✨"
-            label="Highlight"
+            label={t("plan.toolbar.highlight")}
           />
           <ToolbarBtn
             onClick={() => createAnnotation("deletion", undefined, toolbar.text)}
             icon="✂"
-            label="Delete"
+            label={t("plan.toolbar.delete")}
           />
           <button
             onClick={() => {
@@ -460,14 +464,14 @@ export function PlanAnnotator() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[10px] uppercase tracking-[0.18em] font-medium text-ochre-600 mb-2">
-              Selected text
+              {t("plan.modal.selected")}
             </div>
             <div className="text-sm bg-paper-100 border border-paper-200 p-3 rounded mb-4 max-h-40 overflow-y-auto whitespace-pre-wrap text-ink-700 font-display leading-snug">
-              <span className="text-ink-300">“</span>
+              <span className="text-ink-300">"</span>
               {commentDraft.text.length > 400
                 ? commentDraft.text.slice(0, 400) + "…"
                 : commentDraft.text}
-              <span className="text-ink-300">”</span>
+              <span className="text-ink-300">"</span>
             </div>
             <textarea
               autoFocus
@@ -488,7 +492,7 @@ export function PlanAnnotator() {
                 }
               }}
               rows={8}
-              placeholder="Your comment (Enter = submit · Shift+Enter = newline · Esc = cancel)…"
+              placeholder={t("plan.modal.placeholder")}
               className="w-full text-sm leading-relaxed bg-paper-50 border border-paper-200 rounded p-3 focus:border-ochre-400 outline-none resize-y placeholder-ink-300"
             />
             <div className="flex justify-end gap-2 mt-4">
@@ -496,7 +500,7 @@ export function PlanAnnotator() {
                 onClick={() => setCommentDraft(null)}
                 className="px-4 py-2 text-sm text-ink-500 hover:bg-paper-100 rounded-md transition-colors"
               >
-                Cancel
+                {t("plan.modal.cancel")}
               </button>
               <button
                 onClick={() =>
@@ -508,7 +512,7 @@ export function PlanAnnotator() {
                 }
                 className="px-4 py-2 text-sm bg-ink-800 text-paper-100 rounded-md hover:bg-ink-900 transition-colors shadow-sm border border-ink-900"
               >
-                {commentDraft.value.trim() ? "Add comment" : "Just highlight"}
+                {commentDraft.value.trim() ? t("plan.modal.add-comment") : t("plan.modal.just-highlight")}
               </button>
             </div>
           </div>

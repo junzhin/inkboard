@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { useStore } from "../store";
+import { t } from "../lib/i18n";
 
 interface LayoutProps {
   children: ReactNode;
@@ -7,14 +8,14 @@ interface LayoutProps {
 
 type ViewKey = "idle" | "question" | "plan-review";
 
-const NAV: ReadonlyArray<{ key: ViewKey; label: string }> = [
-  { key: "idle", label: "Home" },
-  { key: "question", label: "Questions" },
-  { key: "plan-review", label: "Review" },
+const NAV_KEYS: ReadonlyArray<{ key: ViewKey; labelKey: string }> = [
+  { key: "idle", labelKey: "nav.home" },
+  { key: "question", labelKey: "nav.questions" },
+  { key: "plan-review", labelKey: "nav.review" },
 ];
 
 export function Layout({ children }: LayoutProps) {
-  const { connected, view, setView, toasts, dismissToast, planReviews, pendingQuestions } = useStore();
+  const { connected, view, setView, toasts, dismissToast, planReviews, pendingQuestions, theme, setTheme, locale, setLocale } = useStore();
   const pendingPlans = planReviews.length;
   const pendingQs = pendingQuestions.length;
 
@@ -35,13 +36,13 @@ export function Layout({ children }: LayoutProps) {
               InkBoard
             </span>
             <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300 font-medium ml-1">
-              v0.1
+              v0.3
             </span>
           </button>
 
           <div className="flex items-center gap-5">
             <nav className="hidden sm:flex items-center gap-1 p-1 rounded-md bg-paper-100/60 border border-paper-200">
-              {NAV.map(({ key, label }) => {
+              {NAV_KEYS.map(({ key, labelKey }) => {
                 const isActive = view === key;
                 const badge =
                   key === "plan-review" ? pendingPlans : key === "question" ? pendingQs : 0;
@@ -55,7 +56,7 @@ export function Layout({ children }: LayoutProps) {
                         : "text-ink-400 hover:text-ink-700"
                     }`}
                   >
-                    {label}
+                    {t(labelKey)}
                     {badge > 0 && (
                       <span className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-ochre-500 text-paper-50 text-[10px] font-semibold num">
                         {badge}
@@ -66,7 +67,23 @@ export function Layout({ children }: LayoutProps) {
               })}
             </nav>
 
-            <ConnectionPill connected={connected} />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLocale(locale === "en" ? "zh" : "en")}
+                className="px-2 py-1 text-[11px] font-medium text-ink-400 hover:text-ink-700 border border-paper-200 rounded transition-colors"
+                title={locale === "en" ? "切换中文" : "Switch to English"}
+              >
+                {locale === "en" ? "中" : "EN"}
+              </button>
+              <button
+                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                className="px-2 py-1 text-[15px] leading-none text-ink-400 hover:text-ink-700 border border-paper-200 rounded transition-colors"
+                title={theme === "light" ? "Dark mode" : "Light mode"}
+              >
+                {theme === "light" ? "☾" : "☀"}
+              </button>
+              <ConnectionPill connected={connected} />
+            </div>
           </div>
         </div>
       </header>
@@ -74,23 +91,23 @@ export function Layout({ children }: LayoutProps) {
       <main className="py-8">{children}</main>
 
       <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none w-[min(360px,calc(100vw-2rem))]">
-        {toasts.map((t) => (
+        {toasts.map((tt) => (
           <button
-            key={t.id}
-            onClick={() => dismissToast(t.id)}
+            key={tt.id}
+            onClick={() => dismissToast(tt.id)}
             className={`pointer-events-auto text-left px-4 py-3 rounded-md text-sm font-medium animate-toast-in shadow-paper-lg border ${
-              t.kind === "success"
+              tt.kind === "success"
                 ? "bg-moss-500 border-moss-600 text-paper-50"
-                : t.kind === "error"
+                : tt.kind === "error"
                 ? "bg-rust-500 border-rust-600 text-paper-50"
                 : "bg-ink-800 border-ink-700 text-paper-100"
             }`}
           >
             <div className="flex items-start gap-2.5">
               <span className="mt-0.5 text-base leading-none">
-                {t.kind === "success" ? "✓" : t.kind === "error" ? "!" : "·"}
+                {tt.kind === "success" ? "✓" : tt.kind === "error" ? "!" : "·"}
               </span>
-              <span className="flex-1">{t.text}</span>
+              <span className="flex-1">{tt.text}</span>
             </div>
           </button>
         ))}
@@ -119,7 +136,7 @@ function ConnectionPill({ connected }: { connected: boolean }) {
           <span className="absolute -inset-1 rounded-full bg-moss-400/30 animate-ping" />
         )}
       </span>
-      {connected ? "Live" : "Offline"}
+      {connected ? t("status.live") : t("status.offline")}
     </div>
   );
 }

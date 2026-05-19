@@ -19,12 +19,12 @@ if [ ! -d "$SERVER_DIR/node_modules" ]; then
   (cd "$SERVER_DIR" && npm install --production)
 fi
 
-if [ ! -d "$SERVER_DIR/dist" ]; then
+if [ ! -f "$SERVER_DIR/dist/index.js" ]; then
   echo "[inkboard] Building server..."
-  (cd "$SERVER_DIR" && npx tsc)
+  (cd "$SERVER_DIR" && npm run build)
 fi
 
-if [ -d "$WEB_DIR" ] && [ ! -d "$WEB_DIR/dist" ] && [ -f "$WEB_DIR/package.json" ]; then
+if [ -d "$WEB_DIR" ] && [ ! -f "$WEB_DIR/dist/index.html" ] && [ -f "$WEB_DIR/package.json" ]; then
   echo "[inkboard] Building web UI..."
   (cd "$WEB_DIR" && npm install && npm run build)
 fi

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { Question, PlanAnnotation } from "./types";
+import { type Theme, getTheme, applyTheme } from "./lib/theme";
+import { type Locale, getLocale, setLocale as applyLocale, initLocale } from "./lib/i18n";
 
 type View = "idle" | "question" | "plan-review";
 
@@ -42,9 +44,13 @@ interface InkBoardState {
   view: View;
   connected: boolean;
   questionRoutingEnabled: boolean;
+  theme: Theme;
+  locale: Locale;
   toasts: Toast[];
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
+  setTheme: (theme: Theme) => void;
+  setLocale: (locale: Locale) => void;
 
   activity: ActivityEntry[];
   pushActivity: (entry: Omit<ActivityEntry, "id" | "at">) => void;
@@ -99,6 +105,8 @@ export const useStore = create<InkBoardState>((set, get) => ({
   view: "idle",
   connected: false,
   questionRoutingEnabled: false,
+  theme: getTheme(),
+  locale: (initLocale(), getLocale()),
   toasts: [],
   pushToast: (kind, text) => {
     const id = ++toastCounter;
@@ -129,6 +137,14 @@ export const useStore = create<InkBoardState>((set, get) => ({
   activePlanReviewId: null,
   planAnnotationsByReview: {},
 
+  setTheme: (theme) => {
+    applyTheme(theme);
+    set({ theme });
+  },
+  setLocale: (locale) => {
+    applyLocale(locale);
+    set({ locale });
+  },
   setConnected: (connected) => set({ connected }),
   setQuestionRouting: (enabled) => set({ questionRoutingEnabled: enabled }),
 

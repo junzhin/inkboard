@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useStore } from "../store";
 import { wsClient } from "../ws-client";
 import { formatSessionLabel } from "../lib/format";
+import { t } from "../lib/i18n";
 
 export function QuestionCanvas() {
   const {
@@ -12,6 +13,7 @@ export function QuestionCanvas() {
     setAnswer,
     clearQuestion,
     pushActivity,
+    locale: _locale,
   } = useStore();
 
   const activeQuestion = pendingQuestions.find((q) => q.id === activeQuestionId) ?? null;
@@ -40,10 +42,9 @@ export function QuestionCanvas() {
     return (
       <div className="max-w-3xl mx-auto p-12 text-center">
         <div className="font-display text-5xl text-ink-300 mb-3">?</div>
-        <h2 className="font-display text-2xl text-ink-700 mb-2">No question pending</h2>
+        <h2 className="font-display text-2xl text-ink-700 mb-2">{t("question.empty.title")}</h2>
         <p className="text-sm text-ink-400">
-          Questions appear here automatically when Claude calls{" "}
-          <code className="font-mono text-ink-600">AskUserQuestion</code>.
+          {t("question.empty.hint")}
         </p>
       </div>
     );
@@ -124,14 +125,14 @@ export function QuestionCanvas() {
       <header className="flex items-end justify-between mb-6 gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.18em] text-ochre-600 font-medium mb-1">
-            Interview
+            {t("question.header")}
           </div>
           <h2 className="font-display text-3xl md:text-4xl text-ink-800 tracking-tight leading-tight">
-            Structured questions
+            {t("question.title")}
           </h2>
           {activeQuestion.sessionId && (
             <p className="text-xs text-ink-400 font-mono mt-1.5">
-              session {activeQuestion.sessionId.slice(0, 12)}
+              {t("question.session")} {activeQuestion.sessionId.slice(0, 12)}
             </p>
           )}
         </div>
@@ -141,7 +142,7 @@ export function QuestionCanvas() {
       {activeQuestion.context && (
         <div className="mb-5 p-4 surface-paper-flat rounded-md border-l-2 border-l-ochre-400">
           <div className="text-[10px] uppercase tracking-[0.16em] text-ochre-600 font-medium mb-1.5">
-            Context
+            {t("question.context")}
           </div>
           <p className="text-sm text-ink-700 whitespace-pre-wrap leading-relaxed">
             {activeQuestion.context}
@@ -208,7 +209,7 @@ export function QuestionCanvas() {
               <div className="pt-2">
                 <input
                   type="text"
-                  placeholder="Or type a custom answer…"
+                  placeholder={t("question.custom-placeholder")}
                   value={customInputs[q.question] ?? ""}
                   onChange={(e) => {
                     setCustomInputs((p) => ({
@@ -228,21 +229,21 @@ export function QuestionCanvas() {
       <div className="mt-7 flex justify-end items-center gap-3">
         <span className="text-xs text-ink-400 num mr-auto">
           {activeQuestion.questions.filter((q) => answers[q.question]?.trim()).length} /{" "}
-          {activeQuestion.questions.length} answered
+          {activeQuestion.questions.length} {t("question.answered")}
         </span>
         <button
           onClick={handleRelease}
           className="px-4 py-2.5 bg-paper-50 text-ink-600 rounded-md text-sm font-medium hover:bg-paper-100 hover:text-ink-800 transition-colors border border-paper-200"
-          title="Dismiss the web card and let Claude show the terminal picker"
+          title={t("question.release")}
         >
-          ↳ Answer in terminal
+          {t("question.release")}
         </button>
         <button
           onClick={handleSubmit}
           disabled={!allAnswered}
           className="px-5 py-2.5 bg-ink-800 text-paper-100 rounded-md font-medium hover:bg-ink-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-sm border border-ink-900"
         >
-          Submit answers →
+          {t("question.submit")}
         </button>
       </div>
     </div>
@@ -257,9 +258,9 @@ function Countdown({ remaining, hot }: { remaining: number; hot: boolean }) {
           ? "bg-rust-400/10 border-rust-400/40 text-rust-500 animate-pulse-dot"
           : "bg-paper-100 border-paper-200 text-ink-600"
       }`}
-      title="Auto-releases to terminal when countdown reaches 0"
+      title={t("question.release")}
     >
-      {remaining > 0 ? `${remaining}s → terminal` : "releasing…"}
+      {remaining > 0 ? `${remaining}s ${t("question.countdown.terminal")}` : t("question.countdown.releasing")}
     </div>
   );
 }

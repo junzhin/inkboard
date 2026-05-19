@@ -2,25 +2,27 @@ import { useEffect, useState } from "react";
 import { useStore, type ActivityEntry } from "../store";
 import { wsClient } from "../ws-client";
 import { formatSessionLabel } from "../lib/format";
+import { t } from "../lib/i18n";
 
 function formatRelative(ts: number, now: number): string {
   const d = Math.max(0, now - ts);
-  if (d < 5_000) return "just now";
-  if (d < 60_000) return `${Math.floor(d / 1000)}s ago`;
-  if (d < 3_600_000) return `${Math.floor(d / 60_000)}m ago`;
-  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}h ago`;
+  if (d < 5_000) return t("time.just-now");
+  if (d < 60_000) return `${Math.floor(d / 1000)}${t("time.s-ago")}`;
+  if (d < 3_600_000) return `${Math.floor(d / 60_000)}${t("time.m-ago")}`;
+  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}${t("time.h-ago")}`;
   return new Date(ts).toLocaleString();
 }
 
-const KIND_META: Record<
-  ActivityEntry["kind"],
-  { text: string; tone: "ink" | "moss" | "rust" | "ochre" }
-> = {
-  "plan-arrived":      { text: "Plan arrived",      tone: "ochre" },
-  "plan-approved":     { text: "Plan approved",     tone: "moss" },
-  "plan-denied":       { text: "Changes requested", tone: "rust" },
-  "question-asked":    { text: "Question asked",    tone: "ink" },
-  "question-answered": { text: "Question answered", tone: "moss" },
+function kindText(kind: ActivityEntry["kind"]): string {
+  return t(`activity.${kind}`);
+}
+
+const KIND_TONE: Record<ActivityEntry["kind"], "ink" | "moss" | "rust" | "ochre"> = {
+  "plan-arrived":      "ochre",
+  "plan-approved":     "moss",
+  "plan-denied":       "rust",
+  "question-asked":    "ink",
+  "question-answered": "moss",
 };
 
 const TONE_BADGE: Record<"ink" | "moss" | "rust" | "ochre", string> = {
@@ -46,14 +48,15 @@ export function Home() {
     activity,
     setActivePlanReview,
     setView,
+    locale: _locale,
   } = useStore();
   const [now, setNow] = useState(Date.now());
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export function Home() {
         const body = (await r.json()) as HealthInfo;
         if (cancelled) return;
         if (body.app !== "inkboard") {
-          setHealthError(`Port answered but is not inkboard (app=${body.app ?? "unknown"})`);
+          setHealthError(`${t("home.health.squatter")} (app=${body.app ?? "unknown"})`);
           setHealth(null);
           return;
         }
@@ -75,10 +78,10 @@ export function Home() {
       }
     }
     poll();
-    const t = setInterval(poll, 5000);
+    const timer = setInterval(poll, 5000);
     return () => {
       cancelled = true;
-      clearInterval(t);
+      clearInterval(timer);
     };
   }, []);
 
@@ -90,38 +93,32 @@ export function Home() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 space-y-10">
-      {/* Editorial hero */}
       <section className="grid grid-cols-12 gap-6 items-end pb-4 border-b border-paper-200">
         <div className="col-span-12 md:col-span-7 space-y-3">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-ochre-200 bg-ochre-50 text-ochre-600 text-[11px] uppercase tracking-[0.16em] font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-ochre-400" />
-            Canvas for Claude Code
+            {t("home.badge")}
           </div>
           <h1 className="font-display text-5xl md:text-6xl text-ink-800 leading-[0.95] tracking-tight">
-            A quiet desk for
-            <span className="block italic text-ochre-600 mt-1">plan review.</span>
+            {t("home.title.line1")}
+            <span className="block italic text-ochre-600 mt-1">{t("home.title.line2")}</span>
           </h1>
           <p className="text-base text-ink-500 max-w-xl leading-relaxed">
-            InkBoard surfaces <em className="text-ink-700 not-italic font-medium">ExitPlanMode</em> and{" "}
-            <em className="text-ink-700 not-italic font-medium">AskUserQuestion</em> from Claude Code as a
-            browser canvas — annotate plans inline, answer structured questions, keep one window per session.
+            {t("home.desc")}
           </p>
         </div>
         <div className="col-span-12 md:col-span-5 grid grid-cols-3 gap-3">
-          <BigStat label="Reviews" value={pendingPlans} hot={pendingPlans > 0} />
-          <BigStat label="Questions" value={pendingQs} hot={pendingQs > 0} />
-          <BigStat label="Port" value={port} hot={false} mono />
+          <BigStat label={t("home.stat.reviews")} value={pendingPlans} hot={pendingPlans > 0} />
+          <BigStat label={t("home.stat.questions")} value={pendingQs} hot={pendingQs > 0} />
+          <BigStat label={t("home.stat.port")} value={port} hot={false} mono />
         </div>
       </section>
 
-      {/* Question routing toggle */}
       <section className="surface-paper rounded-lg px-5 py-4 flex items-center justify-between animate-rise-in">
         <div className="space-y-0.5">
-          <div className="text-sm font-medium text-ink-800">Route questions to canvas</div>
+          <div className="text-sm font-medium text-ink-800">{t("home.routing.title")}</div>
           <div className="text-xs text-ink-400">
-            {questionRoutingEnabled
-              ? "AskUserQuestion will appear here. Use the release button to fall back to terminal."
-              : "Questions stay in terminal only. Toggle on to intercept them here."}
+            {questionRoutingEnabled ? t("home.routing.on") : t("home.routing.off")}
           </div>
         </div>
         <button
@@ -133,7 +130,7 @@ export function Home() {
             questionRoutingEnabled ? "bg-moss-500" : "bg-ink-200"
           }`}
           aria-pressed={questionRoutingEnabled}
-          aria-label="Toggle question routing to canvas"
+          aria-label={t("home.routing.title")}
         >
           <span
             className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
@@ -143,16 +140,15 @@ export function Home() {
         </button>
       </section>
 
-      {/* Bento: pending reviews + activity */}
       <section className="grid grid-cols-12 gap-5">
         <div className="col-span-12 lg:col-span-7">
           <Panel
-            title="Active plan reviews"
-            kicker={pendingPlans > 0 ? `${pendingPlans} waiting` : undefined}
+            title={t("home.panel.reviews")}
+            kicker={pendingPlans > 0 ? `${pendingPlans} ${t("home.panel.reviews.waiting")}` : undefined}
             action={
               planReviews.length > 0 ? (
                 <button onClick={() => setView("plan-review")} className="link-ink text-sm">
-                  Open review →
+                  {t("home.panel.reviews.open")}
                 </button>
               ) : undefined
             }
@@ -160,8 +156,8 @@ export function Home() {
             {planReviews.length === 0 ? (
               <EmptyState
                 icon="◇"
-                title="No plans waiting"
-                hint="Plans arrive automatically when Claude calls ExitPlanMode in a hooked session."
+                title={t("home.panel.reviews.empty.title")}
+                hint={t("home.panel.reviews.empty.hint")}
               />
             ) : (
               <ul className="divide-y divide-paper-200">
@@ -172,7 +168,7 @@ export function Home() {
                         {formatSessionLabel(r)}
                       </div>
                       <div className="text-xs text-ink-400 truncate font-mono mt-0.5">
-                        {r.filePath ?? "(inline plan)"} · {formatRelative(r.receivedAt, now)}
+                        {r.filePath ?? t("home.panel.reviews.inline")} · {formatRelative(r.receivedAt, now)}
                       </div>
                     </div>
                     <button
@@ -182,7 +178,7 @@ export function Home() {
                       }}
                       className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-ink-800 text-paper-100 hover:bg-ink-900 transition-colors shadow-sm opacity-90 group-hover:opacity-100"
                     >
-                      Review →
+                      {t("home.panel.reviews.action")}
                     </button>
                   </li>
                 ))}
@@ -192,30 +188,26 @@ export function Home() {
         </div>
 
         <div className="col-span-12 lg:col-span-5">
-          <Panel title="Recent activity" kicker={activity.length > 0 ? `last ${activity.length}` : undefined}>
+          <Panel title={t("home.panel.activity")} kicker={activity.length > 0 ? `${t("home.panel.activity.last")} ${activity.length}` : undefined}>
             {activity.length === 0 ? (
               <EmptyState
                 icon="·"
-                title="Nothing yet"
-                hint={
-                  <>
-                    Run <Code>/inkboard</Code> in Claude Code, or trigger a plan with <Code>ExitPlanMode</Code>.
-                  </>
-                }
+                title={t("home.panel.activity.empty.title")}
+                hint={t("home.panel.activity.empty.hint")}
               />
             ) : (
               <ul className="space-y-1.5 max-h-[360px] overflow-y-auto -mx-1 px-1">
                 {activity.map((a) => {
-                  const meta = KIND_META[a.kind];
+                  const tone = KIND_TONE[a.kind];
                   return (
                     <li
                       key={a.id}
                       className="flex items-center gap-2.5 text-sm py-1.5 px-2 rounded-md hover:bg-paper-100/60 transition-colors"
                     >
                       <span
-                        className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium border ${TONE_BADGE[meta.tone]}`}
+                        className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium border ${TONE_BADGE[tone]}`}
                       >
-                        {meta.text}
+                        {kindText(a.kind)}
                       </span>
                       <span className="text-ink-700 truncate flex-1">
                         {a.sessionName ?? a.label}
@@ -232,26 +224,20 @@ export function Home() {
         </div>
       </section>
 
-      {/* Tips strip — editorial three-up */}
       <section className="grid grid-cols-12 gap-5">
         <Tip
           n="01"
-          title="One window per session"
-          body="Each Claude window gets its own tab in the Review surface — switch with the tab bar."
+          title={t("home.tip1.title")}
+          body={t("home.tip1.body")}
         />
         <Tip
           n="02"
-          title="Select → annotate"
-          body={
-            <>
-              Highlight text in the plan, then choose <em>Comment</em>, <em>Highlight</em>, or <em>Delete</em>{" "}
-              from the floating toolbar.
-            </>
-          }
+          title={t("home.tip2.title")}
+          body={t("home.tip2.body")}
         />
         <Tip
           n="03"
-          title="Test without Claude"
+          title={t("home.tip3.title")}
           body={
             <>
               Push a sample plan: <Code>curl http://localhost:{port}/debug/push-plan-review</Code>
@@ -264,7 +250,7 @@ export function Home() {
         <div className="rounded-md border border-moss-400/30 bg-moss-400/10 text-moss-700 px-4 py-2 text-xs flex items-center gap-3 font-mono">
           <span className="h-1.5 w-1.5 rounded-full bg-moss-500 animate-pulse-dot" />
           <span>
-            Connected to inkboard v{health.version} · pid={health.pid} · port={health.port ?? port}
+            {t("home.health.connected")} v{health.version} · pid={health.pid} · port={health.port ?? port}
           </span>
         </div>
       )}
@@ -273,8 +259,8 @@ export function Home() {
           <span className="h-2 w-2 rounded-full bg-rust-500" />
           <span>
             {healthError
-              ? `Port ${port} did not respond as inkboard: ${healthError}. Run the uninstall script and reinstall.`
-              : "Disconnected from the InkBoard server. The canvas reconnects automatically; if it doesn't, run `bash scripts/start.sh`."}
+              ? `Port ${port} ${t("home.health.error")}: ${healthError}`
+              : t("home.health.disconnected")}
           </span>
         </div>
       )}

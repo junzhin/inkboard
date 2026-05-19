@@ -12,7 +12,7 @@ import questionRouter from "./routes/hook-question.js";
 import planReviewRouter from "./routes/hook-plan-review.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const VERSION = "0.2.9";
+const VERSION = "0.3.0";
 const APP_TAG = "inkboard";
 const PORT_START = 16500;
 const PORT_END = 16519;

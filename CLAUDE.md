@@ -63,6 +63,12 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 
 ## Changelog
 
+### 2026-05-20 (v0.3.0)
+
+- **Dark mode.** CSS custom property-based theme system. All Tailwind color tokens (`paper-*`, `ink-*`, `ochre-*`, `moss-*`, `rust-*`) and box shadows defined as CSS variables in `:root` (light) and `.dark` (dark). Toggle in header persists to localStorage; respects `prefers-color-scheme` on first visit. Zero component Tailwind class changes — dark mode works entirely via variable swap.
+- **Chinese i18n.** ~63 UI string keys extracted to `web/src/lib/i18n.ts` with `en` and `zh` translations. `t("key")` function used in all 4 components. Toggle in header (EN/中) persists to localStorage. Falls back to `navigator.language` on first visit.
+- **Auto-start path fix.** `commands/inkboard.md` now uses `${CLAUDE_PLUGIN_ROOT}/scripts/start.sh` instead of broken `$(dirname "$0")/../scripts/start.sh`. Port range docs updated 7777→16500. `start.sh` checks `dist/index.js` (not just `dist/`) and runs `npm run build` instead of raw `npx tsc`.
+
 ### 2026-05-20 (v0.2.9)
 
 - **Multi-session question tabs.** Questions now use the same array + tab pattern as plan reviews. Multiple Claude Code sessions can ask questions simultaneously without overwriting each other. Frontend-only change — zero server/hook/WS protocol modifications.

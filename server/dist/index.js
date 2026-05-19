@@ -26654,7 +26654,7 @@ var hook_plan_review_default = router2;
 
 // src/index.ts
 var __dirname2 = dirname2(fileURLToPath2(import.meta.url));
-var VERSION = "0.2.9";
+var VERSION = "0.3.0";
 var APP_TAG = "inkboard";
 var PORT_START = 16500;
 var PORT_END = 16519;

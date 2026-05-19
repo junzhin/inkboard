@@ -11,12 +11,12 @@ Start the InkBoard canvas server and begin a structured requirements interview.
 1. Read `/tmp/inkboard.port` (created by the server). Probe `http://localhost:$PORT/health`.
 2. If unreachable, start the server:
    ```bash
-   bash "$(dirname "$0")/../scripts/start.sh"
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/start.sh"
    ```
 3. Wait for `/tmp/inkboard.port` to appear, then open `http://localhost:$PORT`.
 4. Invoke the `inkboard-interview` skill.
 
-The server probes ports 7777-7787 in order; first free port wins.
+The server probes ports 16500-16519 in order; first free port wins.
 
 ## Fallback
 
