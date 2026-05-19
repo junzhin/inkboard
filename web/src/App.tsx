@@ -13,7 +13,7 @@ export default function App() {
     view,
     setConnected,
     setQuestionRouting,
-    setQuestion,
+    upsertQuestion,
     clearQuestion,
     upsertPlanReview,
     pushActivity,
@@ -22,7 +22,7 @@ export default function App() {
 
   useEffect(() => {
     const testMode = new URLSearchParams(window.location.search).get("test");
-    if (testMode === "question") setQuestion(makeTestQuestion());
+    if (testMode === "question") upsertQuestion(makeTestQuestion());
     else if (testMode === "plan") upsertPlanReview(makeTestPlanReview());
 
     wsClient.connect();
@@ -33,7 +33,7 @@ export default function App() {
           setConnected(msg.status === "ready");
           break;
         case "question":
-          setQuestion({
+          upsertQuestion({
             id: msg.id,
             questions: msg.questions as Question[],
             timeoutMs: msg.timeoutMs,
@@ -45,7 +45,7 @@ export default function App() {
           pushActivity({ kind: "question-asked", label: "Question asked" });
           break;
         case "question-released":
-          clearQuestion();
+          clearQuestion(msg.id);
           pushToast("info", "Released to terminal — answer there");
           pushActivity({ kind: "question-answered", label: "Auto-released to terminal" });
           break;
@@ -71,7 +71,7 @@ export default function App() {
       unsubscribe();
       wsClient.disconnect();
     };
-  }, [setConnected, setQuestionRouting, setQuestion, clearQuestion, upsertPlanReview, pushActivity, pushToast]);
+  }, [setConnected, setQuestionRouting, upsertQuestion, clearQuestion, upsertPlanReview, pushActivity, pushToast]);
 
   return (
     <Layout>

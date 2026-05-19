@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-20 (v0.2.9 — Multi-session question support)
+
+### New
+
+- **Questions now support multi-session tabs**, mirroring the plan-review pattern. When multiple Claude Code sessions trigger `AskUserQuestion` simultaneously, each gets its own tab in the canvas — no more overwriting.
+- Tab bar appears when 2+ questions are pending; badge shows answered count per session.
+- Each tab has independent answers, countdown timer, and "Answer in terminal" release.
+
+### Changed
+
+- Store shape: `pendingQuestion: null` → `pendingQuestions: PendingQuestion[]` + `activeQuestionId` + `answersByQuestion` (keyed by question id).
+- `setQuestion()` → `upsertQuestion()`, `clearQuestion()` → `clearQuestion(id)`, `setAnswer(text, val)` → `setAnswer(qId, text, val)`.
+- `nextActiveAfterRemoval()` generalized from `PendingPlanReview[]` to `ReadonlyArray<{ id: string }>` — reused by both question and plan-review cleanup.
+- Layout + Home dashboard badge counts updated.
+- **Frontend-only change** — zero server/hook/WS protocol modifications.
+
 ## 2026-05-19 (v0.2.8 — PreToolUse plan push + PORT_FILE heartbeat)
 
 ### Fixed

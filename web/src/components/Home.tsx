@@ -42,7 +42,7 @@ export function Home() {
     connected,
     questionRoutingEnabled,
     planReviews,
-    pendingQuestion,
+    pendingQuestions,
     activity,
     setActivePlanReview,
     setView,
@@ -86,7 +86,7 @@ export function Home() {
     window.location.port ||
     (window.location.protocol === "https:" ? "443" : "80");
   const pendingPlans = planReviews.length;
-  const pendingQs = pendingQuestion ? 1 : 0;
+  const pendingQs = pendingQuestions.length;
 
   return (
     <div className="max-w-6xl mx-auto px-6 space-y-10">

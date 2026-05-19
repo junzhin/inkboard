@@ -49,8 +49,9 @@ interface InkBoardState {
   activity: ActivityEntry[];
   pushActivity: (entry: Omit<ActivityEntry, "id" | "at">) => void;
 
-  pendingQuestion: PendingQuestion | null;
-  answers: Record<string, string>;
+  pendingQuestions: PendingQuestion[];
+  activeQuestionId: string | null;
+  answersByQuestion: Record<string, Record<string, string>>;
 
   // Multi-session plan review
   planReviews: PendingPlanReview[];
@@ -59,9 +60,10 @@ interface InkBoardState {
 
   setConnected: (connected: boolean) => void;
   setQuestionRouting: (enabled: boolean) => void;
-  setQuestion: (q: PendingQuestion) => void;
-  setAnswer: (questionText: string, answer: string) => void;
-  clearQuestion: () => void;
+  upsertQuestion: (q: PendingQuestion) => void;
+  setActiveQuestion: (id: string) => void;
+  setAnswer: (questionId: string, questionText: string, answer: string) => void;
+  clearQuestion: (id: string) => void;
 
   upsertPlanReview: (review: PendingPlanReview) => void;
   setActivePlanReview: (id: string) => void;
@@ -78,9 +80,9 @@ let activityCounter = 0;
 const MAX_ACTIVITY = 12;
 const TOAST_DURATION_MS = 4_000;
 
-function nextActiveAfterRemoval(reviews: PendingPlanReview[], removedId: string, currentActive: string | null): string | null {
+function nextActiveAfterRemoval(items: ReadonlyArray<{ id: string }>, removedId: string, currentActive: string | null): string | null {
   if (currentActive !== removedId) return currentActive;
-  const remaining = reviews.filter((r) => r.id !== removedId);
+  const remaining = items.filter((r) => r.id !== removedId);
   return remaining.length > 0 ? remaining[0].id : null;
 }
 
@@ -119,8 +121,9 @@ export const useStore = create<InkBoardState>((set, get) => ({
       return { activity: list };
     }),
 
-  pendingQuestion: null,
-  answers: {},
+  pendingQuestions: [],
+  activeQuestionId: null,
+  answersByQuestion: {},
 
   planReviews: [],
   activePlanReviewId: null,
@@ -129,14 +132,46 @@ export const useStore = create<InkBoardState>((set, get) => ({
   setConnected: (connected) => set({ connected }),
   setQuestionRouting: (enabled) => set({ questionRoutingEnabled: enabled }),
 
-  setQuestion: (q) =>
-    set({ pendingQuestion: q, answers: {}, view: "question" }),
+  upsertQuestion: (q) =>
+    set((s) => {
+      const exists = s.pendingQuestions.some((pq) => pq.id === q.id);
+      const pendingQuestions = exists
+        ? s.pendingQuestions.map((pq) => (pq.id === q.id ? q : pq))
+        : [...s.pendingQuestions, q];
+      const answersByQuestion = exists
+        ? s.answersByQuestion
+        : { ...s.answersByQuestion, [q.id]: {} };
+      return {
+        pendingQuestions,
+        answersByQuestion,
+        activeQuestionId: s.activeQuestionId ?? q.id,
+        view: "question",
+      };
+    }),
 
-  setAnswer: (questionText, answer) =>
-    set((s) => ({ answers: { ...s.answers, [questionText]: answer } })),
+  setActiveQuestion: (id) =>
+    set((s) => (s.pendingQuestions.some((q) => q.id === id) ? { activeQuestionId: id } : {})),
 
-  clearQuestion: () =>
-    set({ pendingQuestion: null, answers: {}, view: "idle" }),
+  setAnswer: (questionId, questionText, answer) =>
+    set((s) => ({
+      answersByQuestion: {
+        ...s.answersByQuestion,
+        [questionId]: { ...(s.answersByQuestion[questionId] ?? {}), [questionText]: answer },
+      },
+    })),
+
+  clearQuestion: (id) =>
+    set((s) => {
+      const pendingQuestions = s.pendingQuestions.filter((q) => q.id !== id);
+      const answersByQuestion = omitKey(s.answersByQuestion, id);
+      const activeQuestionId = nextActiveAfterRemoval(s.pendingQuestions, id, s.activeQuestionId);
+      return {
+        pendingQuestions,
+        answersByQuestion,
+        activeQuestionId,
+        view: pendingQuestions.length === 0 ? "idle" : "question",
+      };
+    }),
 
   upsertPlanReview: (review) =>
     set((s) => {

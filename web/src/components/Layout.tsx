@@ -14,9 +14,9 @@ const NAV: ReadonlyArray<{ key: ViewKey; label: string }> = [
 ];
 
 export function Layout({ children }: LayoutProps) {
-  const { connected, view, setView, toasts, dismissToast, planReviews, pendingQuestion } = useStore();
+  const { connected, view, setView, toasts, dismissToast, planReviews, pendingQuestions } = useStore();
   const pendingPlans = planReviews.length;
-  const pendingQs = pendingQuestion ? 1 : 0;
+  const pendingQs = pendingQuestions.length;
 
   return (
     <div className="min-h-screen">

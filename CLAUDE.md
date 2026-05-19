@@ -63,6 +63,10 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 
 ## Changelog
 
+### 2026-05-20 (v0.2.9)
+
+- **Multi-session question tabs.** Questions now use the same array + tab pattern as plan reviews. Multiple Claude Code sessions can ask questions simultaneously without overwriting each other. Frontend-only change — zero server/hook/WS protocol modifications.
+
 ### 2026-05-19 (v0.2.8)
 
 - **Plan review bypasses native UI race entirely.** New `PreToolUse:ExitPlanMode` hook (`plan-push-hook.ts`) pushes plan to canvas and blocks Claude until canvas decision — same protocol as AskUserQuestion, no competing native UI. `PermissionRequest:ExitPlanMode` hook simplified to instant auto-allow (suppresses native prompt).

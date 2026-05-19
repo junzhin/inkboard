@@ -1,17 +1,31 @@
 import { useState, useEffect } from "react";
 import { useStore } from "../store";
 import { wsClient } from "../ws-client";
+import { formatSessionLabel } from "../lib/format";
 
 export function QuestionCanvas() {
-  const { pendingQuestion, answers, setAnswer, clearQuestion, pushActivity } = useStore();
+  const {
+    pendingQuestions,
+    activeQuestionId,
+    answersByQuestion,
+    setActiveQuestion,
+    setAnswer,
+    clearQuestion,
+    pushActivity,
+  } = useStore();
+
+  const activeQuestion = pendingQuestions.find((q) => q.id === activeQuestionId) ?? null;
+  const answers = activeQuestionId ? (answersByQuestion[activeQuestionId] ?? {}) : {};
+
   const [remaining, setRemaining] = useState(0);
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!pendingQuestion) return;
+    if (!activeQuestion) return;
+    setCustomInputs({});
 
-    const effectiveTimeout = pendingQuestion.canvasTimeoutMs ?? pendingQuestion.timeoutMs;
-    const deadline = pendingQuestion.receivedAt + effectiveTimeout;
+    const effectiveTimeout = activeQuestion.canvasTimeoutMs ?? activeQuestion.timeoutMs;
+    const deadline = activeQuestion.receivedAt + effectiveTimeout;
     const tick = () => {
       const left = Math.max(0, deadline - Date.now());
       setRemaining(Math.ceil(left / 1000));
@@ -20,9 +34,9 @@ export function QuestionCanvas() {
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [pendingQuestion]);
+  }, [activeQuestion]);
 
-  if (!pendingQuestion) {
+  if (!activeQuestion) {
     return (
       <div className="max-w-3xl mx-auto p-12 text-center">
         <div className="font-display text-5xl text-ink-300 mb-3">?</div>
@@ -38,31 +52,31 @@ export function QuestionCanvas() {
   const handleSubmit = () => {
     wsClient.send({
       type: "answer",
-      id: pendingQuestion.id,
+      id: activeQuestion.id,
       answers,
     });
     pushActivity({
       kind: "question-answered",
       label: `Answered ${Object.keys(answers).length} question(s)`,
-      sessionName: pendingQuestion.sessionId,
+      sessionName: activeQuestion.sessionId,
     });
-    clearQuestion();
+    clearQuestion(activeQuestion.id);
   };
 
   const handleRelease = () => {
     wsClient.send({
       type: "question-release",
-      id: pendingQuestion.id,
+      id: activeQuestion.id,
     });
     pushActivity({
       kind: "question-answered",
       label: "Released to terminal",
-      sessionName: pendingQuestion.sessionId,
+      sessionName: activeQuestion.sessionId,
     });
-    clearQuestion();
+    clearQuestion(activeQuestion.id);
   };
 
-  const allAnswered = pendingQuestion.questions.every(
+  const allAnswered = activeQuestion.questions.every(
     (q) => answers[q.question]?.trim()
   );
 
@@ -70,6 +84,43 @@ export function QuestionCanvas() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 pb-12">
+      {pendingQuestions.length > 1 && (
+        <div className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-paper-200 -mx-1 px-1">
+          {pendingQuestions.map((pq) => {
+            const isActive = pq.id === activeQuestionId;
+            const answeredCount = Object.keys(answersByQuestion[pq.id] ?? {}).filter(
+              (k) => (answersByQuestion[pq.id]?.[k] ?? "").trim()
+            ).length;
+            const label = formatSessionLabel(pq);
+            return (
+              <button
+                key={pq.id}
+                onClick={() => setActiveQuestion(pq.id)}
+                className={`relative px-4 py-2 text-sm whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "text-ink-800 font-medium"
+                    : "text-ink-400 hover:text-ink-700"
+                }`}
+                title={pq.sessionId ?? pq.id}
+              >
+                <span className="font-display tracking-tight">{label}</span>
+                <span className="ml-2 text-[10px] text-ink-300 font-mono num">
+                  {pq.sessionId ? pq.sessionId.slice(0, 6) : pq.id.slice(0, 6)}
+                </span>
+                {answeredCount > 0 && (
+                  <span className="ml-2 inline-flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-ochre-500 text-paper-50 text-[10px] font-semibold num">
+                    {answeredCount}
+                  </span>
+                )}
+                {isActive && (
+                  <span className="absolute -bottom-px left-2 right-2 h-0.5 bg-ochre-500 rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <header className="flex items-end justify-between mb-6 gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.18em] text-ochre-600 font-medium mb-1">
@@ -78,28 +129,28 @@ export function QuestionCanvas() {
           <h2 className="font-display text-3xl md:text-4xl text-ink-800 tracking-tight leading-tight">
             Structured questions
           </h2>
-          {pendingQuestion.sessionId && (
+          {activeQuestion.sessionId && (
             <p className="text-xs text-ink-400 font-mono mt-1.5">
-              session {pendingQuestion.sessionId.slice(0, 12)}
+              session {activeQuestion.sessionId.slice(0, 12)}
             </p>
           )}
         </div>
         <Countdown remaining={remaining} hot={hot} />
       </header>
 
-      {pendingQuestion.context && (
+      {activeQuestion.context && (
         <div className="mb-5 p-4 surface-paper-flat rounded-md border-l-2 border-l-ochre-400">
           <div className="text-[10px] uppercase tracking-[0.16em] text-ochre-600 font-medium mb-1.5">
             Context
           </div>
           <p className="text-sm text-ink-700 whitespace-pre-wrap leading-relaxed">
-            {pendingQuestion.context}
+            {activeQuestion.context}
           </p>
         </div>
       )}
 
       <div className="space-y-5">
-        {pendingQuestion.questions.map((q, qi) => (
+        {activeQuestion.questions.map((q, qi) => (
           <fieldset
             key={qi}
             className="surface-paper rounded-lg p-5 animate-rise-in"
@@ -132,10 +183,10 @@ export function QuestionCanvas() {
                   >
                     <input
                       type="radio"
-                      name={`q-${qi}`}
+                      name={`q-${activeQuestion.id}-${qi}`}
                       value={opt.label}
                       checked={selected}
-                      onChange={() => setAnswer(q.question, opt.label)}
+                      onChange={() => setAnswer(activeQuestion.id, q.question, opt.label)}
                       className="mt-1 accent-ochre-500"
                     />
                     <div className="flex-1 min-w-0">
@@ -164,7 +215,7 @@ export function QuestionCanvas() {
                       ...p,
                       [q.question]: e.target.value,
                     }));
-                    setAnswer(q.question, e.target.value);
+                    setAnswer(activeQuestion.id, q.question, e.target.value);
                   }}
                   className="w-full text-sm px-3 py-2 bg-paper-50 border border-paper-200 rounded-md focus:border-ochre-400 outline-none placeholder-ink-300 transition-colors"
                 />
@@ -176,8 +227,8 @@ export function QuestionCanvas() {
 
       <div className="mt-7 flex justify-end items-center gap-3">
         <span className="text-xs text-ink-400 num mr-auto">
-          {pendingQuestion.questions.filter((q) => answers[q.question]?.trim()).length} /{" "}
-          {pendingQuestion.questions.length} answered
+          {activeQuestion.questions.filter((q) => answers[q.question]?.trim()).length} /{" "}
+          {activeQuestion.questions.length} answered
         </span>
         <button
           onClick={handleRelease}
