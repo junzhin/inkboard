@@ -1,6 +1,6 @@
 {
   "name": "inkboard",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Browser canvas for Claude Code — visual plan review, structured questions, inline annotations",
   "author": { "name": "junzhin", "url": "https://github.com/junzhin" },
   "license": "MIT",
@@ -17,6 +17,16 @@
             "timeout": 120000
           }
         ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/plan-push-hook.js\" 2>/dev/null || true",
+            "timeout": 1800000
+          }
+        ]
       }
     ],
     "PermissionRequest": [
@@ -26,7 +36,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/plan-review-hook.js\" 2>/dev/null || true",
-            "timeout": 345600000
+            "timeout": 10000
           }
         ]
       }

@@ -6,8 +6,8 @@ import { broadcast, hasClients } from "../ws.js";
 import type { ServerMessage, PlanAnnotation } from "../types.js";
 
 const router = Router();
-// effectively no timeout — match the hook command's `timeout` setting (4 days)
-const TIMEOUT_MS = 345_600_000;
+// match plugin.json PreToolUse:ExitPlanMode timeout (30 min)
+const TIMEOUT_MS = 1_800_000;
 // how long to wait for a canvas WebSocket client to connect before falling back
 // to auto-allow. Covers the cold-start gap: hook fires → server spawns → browser
 // auto-opens → page loads → WebSocket handshake completes. Browser cold start

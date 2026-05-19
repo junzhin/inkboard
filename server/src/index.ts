@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { platform } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync, utimesSync } from "node:fs";
 import { setupWebSocket, broadcast, hasClients } from "./ws.js";
 import { state } from "./state.js";
 import { loadSettings } from "./config.js";
@@ -12,7 +12,7 @@ import questionRouter from "./routes/hook-question.js";
 import planReviewRouter from "./routes/hook-plan-review.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const VERSION = "0.2.7";
+const VERSION = "0.2.8";
 const APP_TAG = "inkboard";
 const PORT_START = 16500;
 const PORT_END = 16519;
@@ -189,6 +189,9 @@ findPort().then((port) => {
   writeFileSync(PORT_FILE, String(port));
   console.log(`[inkboard] server v${VERSION} running on http://${HOST}:${port} (pid ${process.pid})`);
   openBrowser(`http://localhost:${port}`);
+  setInterval(() => {
+    try { const t = Math.floor(Date.now() / 1000); utimesSync(PORT_FILE, t, t); } catch {}
+  }, 60_000).unref();
 }).catch((err) => {
   console.error(`[inkboard] failed to bind: ${err.message}`);
   process.exit(1);

@@ -1,4 +1,9 @@
+#!/usr/bin/env node
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+
+// src/hooks/plan-push-hook.ts
+import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2, statSync as statSync2 } from "node:fs";
+import { join as join2 } from "node:path";
 
 // src/hooks/hook-bridge.ts
 import { readFileSync, existsSync, appendFileSync, openSync, unlinkSync, closeSync, statSync, constants as fsConstants } from "node:fs";
@@ -215,5 +220,63 @@ async function bridgeHook(endpoint, opts = {}) {
   }
 }
 
-// src/hooks/question-hook.ts
-bridgeHook("/hooks/question", { timeoutMs: 18e5 });
+// src/hooks/plan-push-hook.ts
+function findLatestPlanFile(cwd) {
+  const plansDir = join2(cwd, ".claude", "plans");
+  if (!existsSync2(plansDir)) return null;
+  const files = readdirSync(plansDir).filter((f) => f.endsWith(".md")).map((f) => {
+    const p = join2(plansDir, f);
+    return { path: p, mtime: statSync2(p).mtimeMs };
+  }).sort((a, b) => b.mtime - a.mtime);
+  if (files.length === 0) return null;
+  const best = files[0];
+  return { content: readFileSync2(best.path, "utf-8"), path: best.path, mtime: best.mtime };
+}
+var PLAN_RECENCY_MS = 10 * 6e4;
+function transformBody(stdin) {
+  let input;
+  try {
+    input = JSON.parse(stdin);
+  } catch {
+    return stdin;
+  }
+  const toolInput = input.tool_input ?? {};
+  let plan = toolInput.plan ?? "";
+  let filePath = toolInput.file_path;
+  if (!plan.trim() && input.cwd) {
+    const found = findLatestPlanFile(input.cwd);
+    if (found && Date.now() - found.mtime < PLAN_RECENCY_MS) {
+      plan = found.content;
+      filePath = found.path;
+    }
+  }
+  if (!plan.trim()) return stdin;
+  return JSON.stringify({
+    ...input,
+    tool_input: { ...toolInput, plan, file_path: filePath },
+    permission_request: { tool_input: { plan, file_path: filePath } }
+  });
+}
+function transformResponse(body) {
+  try {
+    const parsed = JSON.parse(body);
+    const behavior = parsed?.hookSpecificOutput?.decision?.behavior;
+    const message = parsed?.hookSpecificOutput?.decision?.message;
+    if (behavior === "deny") {
+      return JSON.stringify({
+        decision: "block",
+        reason: message ?? "Changes requested in InkBoard canvas"
+      });
+    }
+    return "{}";
+  } catch {
+    return "{}";
+  }
+}
+bridgeHook("/hooks/plan-review", {
+  fallback: "{}",
+  timeoutMs: 18e5,
+  logFile: "/tmp/inkboard-plan-push.log",
+  transformBody,
+  transformResponse
+});

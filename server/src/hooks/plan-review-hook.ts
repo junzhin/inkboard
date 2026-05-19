@@ -1,16 +1,21 @@
 #!/usr/bin/env node
-import { bridgeHook } from "./hook-bridge.js";
+// PermissionRequest:ExitPlanMode — auto-allow immediately.
+// Plan push + canvas decision is handled by PreToolUse:ExitPlanMode (plan-push-hook).
+// This hook exists only to suppress Claude Code's native plan review UI.
+import { appendFileSync } from "node:fs";
 
-const AUTO_ALLOW = JSON.stringify({
+try {
+  appendFileSync(
+    "/tmp/inkboard-plan-review.log",
+    `${new Date().toISOString()} AUTO_ALLOW (push handled by PreToolUse)\n`
+  );
+} catch {}
+
+const response = JSON.stringify({
   hookSpecificOutput: {
     hookEventName: "PermissionRequest",
     decision: { behavior: "allow" },
   },
 });
 
-bridgeHook("/hooks/plan-review", {
-  fallback: AUTO_ALLOW,
-  // 4 days, matches TIMEOUT_MS in hook-plan-review.ts route
-  timeoutMs: 345_600_000,
-  logFile: "/tmp/inkboard-plan-review.log",
-});
+process.stdout.write(response, () => process.exit(0));

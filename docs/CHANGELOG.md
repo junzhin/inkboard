@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-05-19 (v0.2.8 — PreToolUse plan push + PORT_FILE heartbeat)
+
+### Fixed
+
+- **Plan review now uses `PreToolUse:ExitPlanMode` instead of relying solely on `PermissionRequest`.** The PermissionRequest hook ran concurrently with Claude Code's native ExitPlanMode UI — a race the hook lost whenever sessions exceeded 5 minutes (PORT_FILE mtime expired → cold fingerprint path → SIGTERM). The new architecture:
+  - `PreToolUse:ExitPlanMode` (`plan-push-hook.ts`) pushes plan content to the canvas and blocks Claude until the user approves/rejects. Same protocol as AskUserQuestion — no competing native UI, no SIGTERM race.
+  - `PermissionRequest:ExitPlanMode` (`plan-review-hook.ts`) simplified to instant auto-allow (10 lines). Exists only to suppress the native plan review prompt.
+- **PORT_FILE heartbeat**: server touches `/tmp/inkboard.port` mtime every 60 seconds. The `isLikelyAlive()` trust window (5 min) now never expires while the server is running. Previously, sessions > 5 min always fell to the cold fingerprint path.
+
+### New
+
+- **`plan-push-hook.ts`**: reads plan content from `tool_input.plan` (direct) or falls back to mtime-based `.claude/plans/*.md` scan. Posts to `/hooks/plan-review` route, maps PermissionRequest response format back to PreToolUse format (`{decision: "block", reason}` for deny).
+- **`bridgeHook` transform callbacks**: `transformBody` and `transformResponse` options enable protocol translation between hook types without duplicating the port-discovery/lazy-start infrastructure.
+
+### Changed
+
+- `plugin.json`: added `PreToolUse:ExitPlanMode` (timeout 30 min), reduced `PermissionRequest:ExitPlanMode` timeout to 10 s (it's instant now).
+- `bundle.mjs`: builds `plan-push-hook.js` alongside existing hooks.
+- Version bumped to 0.2.8 across server, web, plugin.json, marketplace.json.
+
 ## 2026-05-18 (v0.2.7 — fix plan-review race with native ExitPlanMode UI)
 
 ### Fixed

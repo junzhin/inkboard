@@ -20,6 +20,10 @@ interface BridgeOptions {
   timeoutMs?: number;
   /** Log file path. Default: `/tmp/inkboard-hook-bridge.log`. */
   logFile?: string;
+  /** Transform stdin into the POST body. When omitted, stdin is forwarded as-is. */
+  transformBody?: (stdin: string) => string | Promise<string>;
+  /** Transform the server response before writing to stdout. */
+  transformResponse?: (body: string) => string;
 }
 
 function makeDebug(logFile: string): (msg: string) => void {
@@ -230,6 +234,9 @@ export async function bridgeHook(
   const stdin = await readStdin();
   debug(`stdin length=${stdin.length}`);
 
+  const postBody = opts.transformBody ? await opts.transformBody(stdin) : stdin;
+  if (postBody !== stdin) debug(`transformBody produced ${postBody.length} bytes`);
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -237,14 +244,17 @@ export async function bridgeHook(
     const res = await fetch(`http://${HOST}:${port}${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: stdin,
+      body: postBody,
       signal: controller.signal,
     });
 
     clearTimeout(timeout);
 
-    const body = await res.text();
-    debug(`response status=${res.status} bytes=${body.length}`);
+    const rawBody = await res.text();
+    debug(`response status=${res.status} bytes=${rawBody.length}`);
+
+    const body = opts.transformResponse ? opts.transformResponse(rawBody) : rawBody;
+    if (body !== rawBody) debug(`transformResponse: ${rawBody.slice(0, 120)} → ${body.slice(0, 120)}`);
 
     const parsed = JSON.parse(body || "{}");
     const isBlock = parsed.decision === "block";

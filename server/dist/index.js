@@ -26237,7 +26237,7 @@ import { spawn } from "node:child_process";
 import { platform } from "node:os";
 import { join as join2, dirname as dirname2 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { writeFileSync as writeFileSync2, existsSync as existsSync2 } from "node:fs";
+import { writeFileSync as writeFileSync2, existsSync as existsSync2, utimesSync } from "node:fs";
 
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);
@@ -26523,7 +26523,7 @@ var import_express2 = __toESM(require_express2(), 1);
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 var router2 = (0, import_express2.Router)();
-var TIMEOUT_MS2 = 3456e5;
+var TIMEOUT_MS2 = 18e5;
 var CLIENT_GRACE_MS = 2e4;
 function deriveSessionName(input) {
   const sid = input.session_id;
@@ -26654,7 +26654,7 @@ var hook_plan_review_default = router2;
 
 // src/index.ts
 var __dirname2 = dirname2(fileURLToPath2(import.meta.url));
-var VERSION = "0.2.7";
+var VERSION = "0.2.8";
 var APP_TAG = "inkboard";
 var PORT_START = 16500;
 var PORT_END = 16519;
@@ -26822,6 +26822,13 @@ findPort().then((port) => {
   writeFileSync2(PORT_FILE, String(port));
   console.log(`[inkboard] server v${VERSION} running on http://${HOST}:${port} (pid ${process.pid})`);
   openBrowser(`http://localhost:${port}`);
+  setInterval(() => {
+    try {
+      const t = Math.floor(Date.now() / 1e3);
+      utimesSync(PORT_FILE, t, t);
+    } catch {
+    }
+  }, 6e4).unref();
 }).catch((err) => {
   console.error(`[inkboard] failed to bind: ${err.message}`);
   process.exit(1);
