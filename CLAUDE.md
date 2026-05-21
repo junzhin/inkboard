@@ -43,7 +43,7 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 - **Server binds IPv4 only** (`127.0.0.1`) and uses port range 16500–16519. Do not change to `0.0.0.0` or to a different port band without confirming there are no LISTEN squatters on the new band on macOS.
 - **`/health` fingerprint contract**: payload must include `app: "inkboard"`, `version`, `pid`, `port`. Hook bridge and canvas both check `app === "inkboard"` to detect port squatters. Don't rename the field.
 - **Hook bridge fast path** (`hook-bridge.ts`): PID alive + `PORT_FILE` mtime < 5 min ⇒ skip `/health` round-trip. Server heartbeat touches `PORT_FILE` every 60 s so the trust window never expires while the server is running.
-- **Plan review uses two hooks**: `PreToolUse:ExitPlanMode` (`plan-push-hook.ts`) pushes the plan to canvas and blocks Claude until the user decides. `PermissionRequest:ExitPlanMode` (`plan-review-hook.ts`) auto-allows immediately to suppress the native UI. This avoids the native UI race entirely — `PreToolUse` hooks don't have competing native UI.
+- **Plan review uses two hooks**: `PreToolUse:ExitPlanMode` (`plan-push-hook.ts`) pushes the plan to canvas and blocks Claude until the user decides. On canvas approve it writes `/tmp/inkboard-plan-approved-<session_id>` as a one-shot marker. `PermissionRequest:ExitPlanMode` (`plan-review-hook.ts`) auto-allows ONLY when the marker is present + fresh (< 60 s); otherwise returns empty `{}` so Claude Code's native UI handles the request. This prevents silent auto-approval when the canvas push fails (server down).
 - **User config lives at `~/.config/inkboard/config.json`** (XDG). `hooks/hooks.json` inside the marketplace clone is *factory defaults only* — gets overwritten on `git pull`. Anything that needs to persist across plugin updates must go through `server/src/config.ts` `saveUserConfig()`.
 
 ## Known limits
@@ -62,6 +62,13 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 - Don't add state mutations or Promise wrappers for things that should be transient UI state.
 
 ## Changelog
+
+### 2026-05-21 (v0.3.1)
+
+- **Question routing — no more silent drops.** Removed `!hasClients()` short-circuit and 60 s canvas-release timer from `server/src/routes/hook-question.ts`. `state.addQuestion()` now registers synchronously **before** the broadcast, so a client connecting mid-flight picks it up via `replayPendingItems()`. As long as the routing toggle is ON, every AskUserQuestion call waits for the canvas; the only fallback path is the 5-minute hook timeout. Manual "↳ Answer in terminal" button still releases on demand.
+- **Plan auto-approve bug fixed.** `plan-review-hook.ts` (`PermissionRequest:ExitPlanMode`) used to auto-allow unconditionally, which silently bypassed both canvas and native UI when the PreToolUse plan-push failed (server unreachable, lazy-start failure). Now it gates on a per-session marker (`/tmp/inkboard-plan-approved-<session_id>`) written by `plan-push-hook.ts` only on a successful canvas-approve. No marker → return empty `{}` → native UI takes over. One-shot marker (deleted on read) so it can't leak between requests.
+- **`/inkboard` always lands the user on the canvas.** `scripts/start.sh` now wipes stale PID/PORT/lock files when the recorded PID is dead, logs non-inkboard squatters on 16500–16519 (active kill opt-in via `INKBOARD_KILL_SQUATTERS=1`), and — when an inkboard instance is already healthy — prints `Already running — http://localhost:PORT` and re-opens the browser tab (WSL, macOS, native Linux, Windows). Cold-spawn browser-open stays in `server/src/index.ts:openBrowser` to avoid double-pop.
+- **Question countdown removed.** `QuestionCanvas.tsx` no longer renders the 60 s timer; the manual "↳ Answer in terminal" release button stays.
 
 ### 2026-05-20 (v0.3.0)
 

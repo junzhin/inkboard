@@ -19,23 +19,11 @@ export function QuestionCanvas() {
   const activeQuestion = pendingQuestions.find((q) => q.id === activeQuestionId) ?? null;
   const answers = activeQuestionId ? (answersByQuestion[activeQuestionId] ?? {}) : {};
 
-  const [remaining, setRemaining] = useState(0);
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!activeQuestion) return;
     setCustomInputs({});
-
-    const effectiveTimeout = activeQuestion.canvasTimeoutMs ?? activeQuestion.timeoutMs;
-    const deadline = activeQuestion.receivedAt + effectiveTimeout;
-    const tick = () => {
-      const left = Math.max(0, deadline - Date.now());
-      setRemaining(Math.ceil(left / 1000));
-    };
-
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
   }, [activeQuestion]);
 
   if (!activeQuestion) {
@@ -80,8 +68,6 @@ export function QuestionCanvas() {
   const allAnswered = activeQuestion.questions.every(
     (q) => answers[q.question]?.trim()
   );
-
-  const hot = remaining <= 15;
 
   return (
     <div className="max-w-3xl mx-auto px-6 pb-12">
@@ -136,7 +122,6 @@ export function QuestionCanvas() {
             </p>
           )}
         </div>
-        <Countdown remaining={remaining} hot={hot} />
       </header>
 
       {activeQuestion.context && (
@@ -246,21 +231,6 @@ export function QuestionCanvas() {
           {t("question.submit")}
         </button>
       </div>
-    </div>
-  );
-}
-
-function Countdown({ remaining, hot }: { remaining: number; hot: boolean }) {
-  return (
-    <div
-      className={`px-3 py-1.5 rounded-md border text-sm font-mono num transition-colors ${
-        hot
-          ? "bg-rust-400/10 border-rust-400/40 text-rust-500 animate-pulse-dot"
-          : "bg-paper-100 border-paper-200 text-ink-600"
-      }`}
-      title={t("question.release")}
-    >
-      {remaining > 0 ? `${remaining}s ${t("question.countdown.terminal")}` : t("question.countdown.releasing")}
     </div>
   );
 }

@@ -51,6 +51,23 @@ describe("ServerState", () => {
       state.reset();
       expect(state.pendingQuestions.size).toBe(0);
     });
+
+    // Regression guard: hook-question.ts relies on addQuestion registering
+    // the pending entry synchronously so a WebSocket client connecting after
+    // the broadcast (or reconnecting) can pick it up via replayPendingItems().
+    // If the registration becomes async (e.g. moved into .then), questions
+    // race with the broadcast and the canvas Questions tab stays empty.
+    it("addQuestion registers pending entry synchronously (replay race guard)", () => {
+      const id = state.nextId();
+      const questions = [{ question: "test?", header: "h", options: [], multiSelect: false }];
+      const p = state.addQuestion(id, questions, 5000);
+      expect(state.pendingQuestions.has(id)).toBe(true);
+      const pending = state.pendingQuestions.get(id)!;
+      expect(pending.questions).toEqual(questions);
+      expect(pending.deadline).toBeGreaterThan(Date.now());
+      state.resolveQuestion(id, { "test?": "ok" });
+      return p;
+    });
   });
 
 });

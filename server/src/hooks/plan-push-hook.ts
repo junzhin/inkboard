@@ -1,9 +1,18 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, statSync, appendFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { bridgeHook } from "./hook-bridge.js";
 
 const LOG_FILE = "/tmp/inkboard-plan-push.log";
+const APPROVED_MARKER_PREFIX = "/tmp/inkboard-plan-approved-";
+
+// Captured in transformBody so transformResponse can write a per-session
+// approval marker. PermissionRequest:ExitPlanMode (plan-review-hook) reads
+// the marker to decide whether to suppress the native UI — without it, when
+// the server is unreachable and PreToolUse falls back to "{}", the
+// PermissionRequest hook would still auto-allow, silently bypassing both
+// canvas and native UI.
+let currentSessionId = "";
 
 function debug(msg: string): void {
   try {
@@ -51,6 +60,7 @@ function transformBody(stdin: string): string {
     return stdin;
   }
 
+  currentSessionId = input.session_id ?? "";
   debug(`tool_name=${input.tool_name ?? "?"} cwd=${input.cwd ?? "?"} session=${input.session_id ?? "?"}`);
 
   const toolInput = input.tool_input ?? {};
@@ -101,10 +111,26 @@ function transformResponse(body: string): string {
       });
     }
     debug(`decision=allow`);
+    writeApprovedMarker();
     return "{}";
   } catch {
     debug("transformResponse parse error — allowing");
+    writeApprovedMarker();
     return "{}";
+  }
+}
+
+function writeApprovedMarker(): void {
+  if (!currentSessionId) {
+    debug("no session_id captured — skipping approval marker");
+    return;
+  }
+  const path = `${APPROVED_MARKER_PREFIX}${currentSessionId}`;
+  try {
+    writeFileSync(path, String(Date.now()));
+    debug(`wrote approval marker: ${path}`);
+  } catch (err) {
+    debug(`failed to write approval marker: ${err}`);
   }
 }
 

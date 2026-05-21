@@ -1,11 +1,10 @@
 import { Router } from "express";
 import { state } from "../state.js";
-import { broadcast, hasClients } from "../ws.js";
+import { broadcast } from "../ws.js";
 import type { HookInput, ServerMessage } from "../types.js";
 
 const router = Router();
 const TIMEOUT_MS = 5 * 60_000;
-const CANVAS_TIMEOUT_MS = 60_000;
 
 router.post("/", async (req, res) => {
   const input = req.body as HookInput;
@@ -13,13 +12,6 @@ router.post("/", async (req, res) => {
   if (!state.questionRoutingEnabled) {
     process.stderr.write(
       "[inkboard] question NOT routed: routing disabled (toggle in canvas Home → 'Route questions to canvas').\n"
-    );
-    res.json({});
-    return;
-  }
-  if (!hasClients()) {
-    process.stderr.write(
-      "[inkboard] question NOT routed: no canvas client connected. Open the canvas tab and retry.\n"
     );
     res.json({});
     return;
@@ -37,26 +29,30 @@ router.post("/", async (req, res) => {
     if (notes.length > 0) context = notes.join("\n");
   }
 
+  // Register pending entry FIRST so a client connecting during the broadcast
+  // race picks it up via replayPendingItems() on WS connect. Mirrors v0.2.5
+  // plan-review fix.
+  const answerPromise = state.addQuestion(id, questions, TIMEOUT_MS);
+
   const msg: ServerMessage = {
     type: "question",
     id,
     questions,
     timeoutMs: TIMEOUT_MS,
-    canvasTimeoutMs: CANVAS_TIMEOUT_MS,
     sessionId: input.session_id,
     context: context || undefined,
   };
   broadcast(msg);
 
-  const releaseTimer = setTimeout(() => {
-    if (state.releaseQuestion(id)) {
-      broadcast({ type: "question-released", id });
-    }
-  }, CANVAS_TIMEOUT_MS);
+  const port = state.boundPort;
+  if (port) {
+    process.stderr.write(
+      `[inkboard] question sent to canvas → http://localhost:${port}\n`
+    );
+  }
 
   try {
-    const answers = await state.addQuestion(id, questions, TIMEOUT_MS);
-    clearTimeout(releaseTimer);
+    const answers = await answerPromise;
 
     const lines = Object.entries(answers)
       .map(([q, a]) => `- ${q} → ${a}`)
@@ -68,7 +64,6 @@ router.post("/", async (req, res) => {
       reason,
     });
   } catch {
-    clearTimeout(releaseTimer);
     res.json({});
   }
 });

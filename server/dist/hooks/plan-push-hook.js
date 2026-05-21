@@ -2,7 +2,7 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 
 // src/hooks/plan-push-hook.ts
-import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2, statSync as statSync2, appendFileSync as appendFileSync2 } from "node:fs";
+import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2, statSync as statSync2, appendFileSync as appendFileSync2, writeFileSync } from "node:fs";
 import { join as join2 } from "node:path";
 
 // src/hooks/hook-bridge.ts
@@ -222,6 +222,8 @@ async function bridgeHook(endpoint, opts = {}) {
 
 // src/hooks/plan-push-hook.ts
 var LOG_FILE = "/tmp/inkboard-plan-push.log";
+var APPROVED_MARKER_PREFIX = "/tmp/inkboard-plan-approved-";
+var currentSessionId = "";
 function debug(msg) {
   try {
     appendFileSync2(LOG_FILE, `${(/* @__PURE__ */ new Date()).toISOString()} [plan-push] ${msg}
@@ -257,6 +259,7 @@ function transformBody(stdin) {
     debug("JSON parse failed on stdin");
     return stdin;
   }
+  currentSessionId = input.session_id ?? "";
   debug(`tool_name=${input.tool_name ?? "?"} cwd=${input.cwd ?? "?"} session=${input.session_id ?? "?"}`);
   const toolInput = input.tool_input ?? {};
   let plan = toolInput.plan ?? "";
@@ -296,10 +299,25 @@ function transformResponse(body) {
       });
     }
     debug(`decision=allow`);
+    writeApprovedMarker();
     return "{}";
   } catch {
     debug("transformResponse parse error \u2014 allowing");
+    writeApprovedMarker();
     return "{}";
+  }
+}
+function writeApprovedMarker() {
+  if (!currentSessionId) {
+    debug("no session_id captured \u2014 skipping approval marker");
+    return;
+  }
+  const path = `${APPROVED_MARKER_PREFIX}${currentSessionId}`;
+  try {
+    writeFileSync(path, String(Date.now()));
+    debug(`wrote approval marker: ${path}`);
+  } catch (err) {
+    debug(`failed to write approval marker: ${err}`);
   }
 }
 bridgeHook("/hooks/plan-review", {
