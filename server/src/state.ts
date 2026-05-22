@@ -6,6 +6,16 @@ interface PendingQuestion {
   timeout: ReturnType<typeof setTimeout>;
   questions: unknown[];
   deadline: number;
+  sessionId?: string;
+  context?: string;
+}
+
+export interface AddQuestionOptions {
+  id: string;
+  questions: unknown[];
+  timeoutMs: number;
+  sessionId?: string;
+  context?: string;
 }
 
 interface PendingPlanReview {
@@ -39,11 +49,8 @@ class ServerState {
     return `ink_${Date.now()}_${++this.counter}`;
   }
 
-  addQuestion(
-    id: string,
-    questions: unknown[],
-    timeoutMs: number
-  ): Promise<Record<string, string>> {
+  addQuestion(opts: AddQuestionOptions): Promise<Record<string, string>> {
+    const { id, questions, timeoutMs, sessionId, context } = opts;
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingQuestions.delete(id);
@@ -56,6 +63,8 @@ class ServerState {
         timeout,
         questions,
         deadline: Date.now() + timeoutMs,
+        sessionId,
+        context,
       });
     });
   }

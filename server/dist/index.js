@@ -26259,7 +26259,8 @@ var ServerState = class {
   nextId() {
     return `ink_${Date.now()}_${++this.counter}`;
   }
-  addQuestion(id, questions, timeoutMs) {
+  addQuestion(opts) {
+    const { id, questions, timeoutMs, sessionId, context } = opts;
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingQuestions.delete(id);
@@ -26270,7 +26271,9 @@ var ServerState = class {
         reject,
         timeout,
         questions,
-        deadline: Date.now() + timeoutMs
+        deadline: Date.now() + timeoutMs,
+        sessionId,
+        context
       });
     });
   }
@@ -26404,7 +26407,9 @@ function replayPendingItems(ws) {
       type: "question",
       id,
       questions: pending.questions,
-      timeoutMs: remainingMs
+      timeoutMs: remainingMs,
+      sessionId: pending.sessionId,
+      context: pending.context
     };
     ws.send(JSON.stringify(msg));
   }
@@ -26477,7 +26482,13 @@ router.post("/", async (req, res) => {
     const notes = Object.values(annotations).map((a) => a.notes).filter(Boolean);
     if (notes.length > 0) context = notes.join("\n");
   }
-  const answerPromise = state.addQuestion(id, questions, TIMEOUT_MS);
+  const answerPromise = state.addQuestion({
+    id,
+    questions,
+    timeoutMs: TIMEOUT_MS,
+    sessionId: input.session_id,
+    context: context || void 0
+  });
   const msg = {
     type: "question",
     id,
@@ -26646,7 +26657,7 @@ var hook_plan_review_default = router2;
 
 // src/index.ts
 var __dirname2 = dirname2(fileURLToPath2(import.meta.url));
-var VERSION = "0.3.1";
+var VERSION = "0.3.2";
 var APP_TAG = "inkboard";
 var PORT_START = 16500;
 var PORT_END = 16519;

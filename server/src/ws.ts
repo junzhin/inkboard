@@ -53,6 +53,8 @@ function replayPendingItems(ws: WebSocket): void {
       id,
       questions: pending.questions,
       timeoutMs: remainingMs,
+      sessionId: pending.sessionId,
+      context: pending.context,
     };
     ws.send(JSON.stringify(msg));
   }

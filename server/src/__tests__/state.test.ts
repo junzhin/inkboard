@@ -20,7 +20,7 @@ describe("ServerState", () => {
       const id = state.nextId();
       const questions = [{ question: "test?", options: [] }];
 
-      const promise = state.addQuestion(id, questions, 5000);
+      const promise = state.addQuestion({ id, questions, timeoutMs: 5000 });
       const resolved = state.resolveQuestion(id, {
         "test?": "answer1",
       });
@@ -33,7 +33,7 @@ describe("ServerState", () => {
     it("rejects on timeout", async () => {
       const id = state.nextId();
 
-      const promise = state.addQuestion(id, [], 50);
+      const promise = state.addQuestion({ id, questions: [], timeoutMs: 50 });
 
       await expect(promise).rejects.toThrow("timeout");
     });
@@ -45,7 +45,7 @@ describe("ServerState", () => {
 
     it("cleans up after reset", () => {
       const id = state.nextId();
-      state.addQuestion(id, [], 60000);
+      state.addQuestion({ id, questions: [], timeoutMs: 60000 });
       expect(state.pendingQuestions.size).toBe(1);
 
       state.reset();
@@ -60,11 +60,19 @@ describe("ServerState", () => {
     it("addQuestion registers pending entry synchronously (replay race guard)", () => {
       const id = state.nextId();
       const questions = [{ question: "test?", header: "h", options: [], multiSelect: false }];
-      const p = state.addQuestion(id, questions, 5000);
+      const p = state.addQuestion({
+        id,
+        questions,
+        timeoutMs: 5000,
+        sessionId: "s1",
+        context: "Why this question matters",
+      });
       expect(state.pendingQuestions.has(id)).toBe(true);
       const pending = state.pendingQuestions.get(id)!;
       expect(pending.questions).toEqual(questions);
       expect(pending.deadline).toBeGreaterThan(Date.now());
+      expect(pending.sessionId).toBe("s1");
+      expect(pending.context).toBe("Why this question matters");
       state.resolveQuestion(id, { "test?": "ok" });
       return p;
     });

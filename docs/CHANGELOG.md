@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-05-22 (v0.3.2 — fix question replay loses sessionId + context)
+
+### Fixed
+
+- **`replayPendingItems()` for questions no longer drops `sessionId` and `context`.** When a client connected mid-flight (cold start, page refresh, browser opened by lazy-spawn) the replay path emitted the question `type: "question"` ServerMessage without `sessionId` or `context`. The canvas then rendered the question with a null session label (tab showed "Session ?" instead of `cwd-basename (xxxx)`) and the Context block was suppressed entirely. After v0.3.1 removed the `!hasClients()` short-circuit, *every* question that fires before the canvas finishes its handshake walks through replay — so this edge case got promoted from rare to routine.
+- Root cause: `server/src/state.ts` `PendingQuestion` interface didn't persist `sessionId` / `context`, so the replay loop in `ws.ts` had nothing to re-emit. Fix is a 3-file plumb-through:
+  - `state.ts`: `addQuestion(id, questions, timeoutMs)` → `addQuestion({ id, questions, timeoutMs, sessionId?, context? })`. New `AddQuestionOptions` export mirrors `AddPlanReviewOptions`. `PendingQuestion` now stores both fields.
+  - `routes/hook-question.ts`: passes `sessionId: input.session_id` + `context` into the options object.
+  - `ws.ts:replayPendingItems()`: re-emits both fields on every replayed question.
+- Regression guard test added in `__tests__/state.test.ts` — asserts the pending entry retains `sessionId` + `context` after `addQuestion`.
+
+### Why this versus v0.3.1
+
+v0.3.1 closed the silent-drop hole at the *broadcast* layer (no more skipping when canvas absent). v0.3.2 closes the same class of bug one layer up — at the *replay* layer. Symptom that prompted this: tabs missing session labels and Context blocks vanishing for questions that fired before the user's browser finished connecting, easily mistaken for "only some questions get pushed to the canvas".
+
+### Repository / docs
+
+- README rewrite: animated typing-SVG hero, badges, Screenshots section with `assets/screenshots/*.png` placeholders, refreshed feature list, `INKBOARD_KILL_SQUATTERS` env documented.
+- CHANGELOG entries for v0.3.0 and v0.3.1 ported over from `CLAUDE.md` (they had only been recorded there, not in `docs/CHANGELOG.md`).
+
+## 2026-05-21 (v0.3.1 — reliable question routing + zero-step startup + fix silent plan auto-approve)
+
+### Fixed
+
+- **AskUserQuestion no longer silently drops when the canvas isn't connected yet.** `server/src/routes/hook-question.ts` previously had a `!hasClients()` short-circuit + 60 s canvas-release timer; both removed. `state.addQuestion()` now registers the pending entry **before** broadcasting, so a client connecting mid-flight picks it up via `replayPendingItems()`. As long as the routing toggle is ON, every AskUserQuestion call waits for the canvas; the only fallback path is the 5-minute hook timeout. Manual "↳ Answer in terminal" button still releases on demand.
+- **Plan auto-approve bypass closed.** `plan-review-hook.ts` (`PermissionRequest:ExitPlanMode`) used to auto-allow unconditionally, which silently bypassed both canvas and native UI when the PreToolUse plan-push failed (server unreachable, lazy-start failure). Now gates on a per-session marker (`/tmp/inkboard-plan-approved-<session_id>`) written by `plan-push-hook.ts` only on a successful canvas-approve. No marker → return empty `{}` → Claude Code's native plan UI takes over. One-shot marker (deleted on read) so it can't leak between requests.
+- **`/inkboard` always lands the user on the canvas.** `scripts/start.sh` now wipes stale PID/PORT/lock files when the recorded PID is dead, logs non-inkboard squatters on 16500–16519 (active kill opt-in via `INKBOARD_KILL_SQUATTERS=1`), and — when an inkboard instance is already healthy — prints `Already running — http://localhost:PORT` and re-opens the browser tab (WSL, macOS, native Linux, Windows). Cold-spawn browser-open stays in `server/src/index.ts:openBrowser` to avoid double-pop.
+
+### Changed
+
+- **Question countdown removed.** `QuestionCanvas.tsx` no longer renders the 60 s timer; the manual "↳ Answer in terminal" release button stays.
+
+### Why this versus v0.3.0
+
+v0.3.0 fixed the cosmetic and i18n layer; v0.3.1 fixes the *reliability* layer underneath it. Two genuine silent-drop bugs (questions, plans) were masked when the happy path worked. Both now fail loud or fall through to the next handler instead of disappearing.
+
+## 2026-05-20 (v0.3.0 — dark mode + Chinese i18n + auto-start path fix)
+
+### Added
+
+- **Dark mode.** CSS custom property-based theme system. All Tailwind color tokens (`paper-*`, `ink-*`, `ochre-*`, `moss-*`, `rust-*`) and box shadows defined as CSS variables in `:root` (light) and `.dark` (dark). Toggle in header persists to localStorage; respects `prefers-color-scheme` on first visit. Zero component Tailwind class changes — dark mode works entirely via variable swap.
+- **Chinese i18n.** ~63 UI string keys extracted to `web/src/lib/i18n.ts` with `en` and `zh` translations. `t("key")` function used in all 4 components. Toggle in header (EN/中) persists to localStorage. Falls back to `navigator.language` on first visit.
+
+### Fixed
+
+- **Auto-start path fix.** `commands/inkboard.md` now uses `${CLAUDE_PLUGIN_ROOT}/scripts/start.sh` instead of the broken `$(dirname "$0")/../scripts/start.sh` form (the latter was never expanded by the plugin loader's command executor, so `/inkboard` silently did nothing on first run). Port range docs updated 7777 → 16500. `start.sh` now checks `dist/index.js` (not just `dist/`) and runs `npm run build` instead of raw `npx tsc`.
+
+### Why this versus v0.2.9
+
+v0.2.9 was the last frontend-only release — multi-session question tabs and nothing else. v0.3.0 is the first cross-cutting release of the 0.3 line: theme system, locale system, and the long-standing `/inkboard` cold-start path bug that meant the slash command was effectively a no-op for new installs.
+
 ## 2026-05-20 (v0.2.9 — Multi-session question support)
 
 ### New

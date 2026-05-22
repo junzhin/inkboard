@@ -31,8 +31,17 @@ router.post("/", async (req, res) => {
 
   // Register pending entry FIRST so a client connecting during the broadcast
   // race picks it up via replayPendingItems() on WS connect. Mirrors v0.2.5
-  // plan-review fix.
-  const answerPromise = state.addQuestion(id, questions, TIMEOUT_MS);
+  // plan-review fix. sessionId + context are stored so the replay path can
+  // re-emit them (without them, mid-flight reconnecting clients render the
+  // question with no session label and no context block — looks like a partial
+  // push).
+  const answerPromise = state.addQuestion({
+    id,
+    questions,
+    timeoutMs: TIMEOUT_MS,
+    sessionId: input.session_id,
+    context: context || undefined,
+  });
 
   const msg: ServerMessage = {
     type: "question",
