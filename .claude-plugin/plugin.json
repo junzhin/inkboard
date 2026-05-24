@@ -1,12 +1,23 @@
 {
   "name": "inkboard",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Browser canvas for Claude Code — visual plan review, structured questions, inline annotations",
   "author": { "name": "junzhin", "url": "https://github.com/junzhin" },
   "license": "MIT",
   "skills": ["./skills/inkboard-interview/SKILL.md"],
   "commands": ["./commands/inkboard.md"],
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/server/dist/hooks/session-start-hook.js\" 2>&1 || true",
+            "timeout": 15000
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "AskUserQuestion",

@@ -3,8 +3,8 @@ import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PID_FILE = "/tmp/inkboard.pid";
-const PORT_FILE = "/tmp/inkboard.port";
+export const PID_FILE = "/tmp/inkboard.pid";
+export const PORT_FILE = "/tmp/inkboard.port";
 const LOCK_FILE = "/tmp/inkboard-start.lock";
 const APP_TAG = "inkboard";
 const HOST = "127.0.0.1";
@@ -26,7 +26,7 @@ interface BridgeOptions {
   transformResponse?: (body: string) => string;
 }
 
-function makeDebug(logFile: string): (msg: string) => void {
+export function makeDebug(logFile: string): (msg: string) => void {
   return (msg) => {
     try {
       appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`);
@@ -60,7 +60,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fingerprintHealthy(port: number): Promise<boolean> {
+export async function fingerprintHealthy(port: number): Promise<boolean> {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), FINGERPRINT_TIMEOUT_MS);
@@ -84,7 +84,7 @@ async function fingerprintHealthy(port: number): Promise<boolean> {
  * canvas never got the broadcast. Trust a fresh PORT_FILE + live PID instead;
  * if those lie we fall through to fingerprintHealthy() in the slow path.
  */
-function isLikelyAlive(port: number): boolean {
+export function isLikelyAlive(port: number): boolean {
   if (port <= 0) return false;
   if (!existsSync(PID_FILE) || !existsSync(PORT_FILE)) return false;
   if (!isProcessAlive(PID_FILE)) return false;
@@ -123,7 +123,7 @@ async function waitForReady(debug: (msg: string) => void, attempts = 60): Promis
   return false;
 }
 
-async function lazyStart(debug: (msg: string) => void): Promise<boolean> {
+export async function lazyStart(debug: (msg: string) => void): Promise<boolean> {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const indexJs = join(__dirname, "..", "index.js");

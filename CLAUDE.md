@@ -63,6 +63,11 @@ Tests: `cd server && npm test` (vitest, 10 tests).
 
 ## Changelog
 
+### 2026-05-24 (v0.3.3)
+
+- **Auto-start canvas on session begin.** New `SessionStart` hook (`session-start-hook.ts`) fires once per Claude Code session. Checks if server is alive (fast PID+PORT_FILE path), lazy-starts if needed, opens browser, and prints `[inkboard] Canvas ready → http://localhost:PORT` to stderr. No manual `/inkboard` invocation needed — canvas is ready before the first question or plan review.
+- **Hook-bridge exports utilities.** `isLikelyAlive`, `lazyStart`, `makeDebug`, `fingerprintHealthy`, `PORT_FILE`, `PID_FILE` now exported from `hook-bridge.ts` for reuse by session-start-hook.
+
 ### 2026-05-21 (v0.3.1)
 
 - **Question routing — no more silent drops.** Removed `!hasClients()` short-circuit and 60 s canvas-release timer from `server/src/routes/hook-question.ts`. `state.addQuestion()` now registers synchronously **before** the broadcast, so a client connecting mid-flight picks it up via `replayPendingItems()`. As long as the routing toggle is ON, every AskUserQuestion call waits for the canvas; the only fallback path is the 5-minute hook timeout. Manual "↳ Answer in terminal" button still releases on demand.

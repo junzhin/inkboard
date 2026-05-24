@@ -59,6 +59,12 @@ async function bundleAll() {
     entryPoints: [join(serverRoot, "src/hooks/plan-push-hook.ts")],
     outfile: join(distDir, "hooks/plan-push-hook.js"),
   });
+
+  await build({
+    ...sharedOpts,
+    entryPoints: [join(serverRoot, "src/hooks/session-start-hook.ts")],
+    outfile: join(distDir, "hooks/session-start-hook.js"),
+  });
 }
 
 async function main() {
